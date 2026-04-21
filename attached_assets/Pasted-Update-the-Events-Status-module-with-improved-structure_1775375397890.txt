@@ -1,0 +1,145 @@
+Update the Events Status module with improved structure, tabs, and logic:
+
+---
+
+1. TABS STRUCTURE (MAIN PAGE)
+
+Replace existing tabs with:
+
+• Ongoing
+• Completed
+• Cancelled / Rejected
+
+* Remove "Upcoming" tab completely
+* Default selected tab: Ongoing
+
+---
+
+2. DATA LOGIC
+
+A. Ongoing:
+Show events where:
+event.start_date <= current_date AND event.end_date >= current_date
+
+B. Completed:
+Show events where:
+event.end_date < current_date AND event.status == "completed"
+
+C. Cancelled / Rejected:
+Show events where:
+event.status IN ["cancelled", "rejected"]
+
+---
+
+3. CANCELLED / REJECTED TAB STRUCTURE
+
+Inside this tab, divide into two sections (or sub-tabs):
+
+A. Cancelled:
+Include:
+
+* Crew cancelled after applying
+* No-show cases
+* Removed by admin
+* Dropped after selection
+
+Add "reason" field:
+Examples:
+
+* "No Show"
+* "Personal Reason"
+* "Late Arrival"
+* "Removed by Admin"
+
+B. Rejected:
+Include:
+
+* Applied but not selected
+* Client rejection
+* Overbooking / position filled
+
+Add "reason" field:
+Examples:
+
+* "Profile mismatch"
+* "Client rejected"
+* "Position filled"
+
+Each event card should show:
+
+* Event Name
+* Date
+* Status Badge (Cancelled / Rejected)
+* Reason (small tag)
+
+---
+
+4. EMPTY STATES
+
+Ongoing:
+"No ongoing events."
+
+Completed:
+"No completed events."
+
+Cancelled / Rejected:
+"No cancelled or rejected events."
+
+---
+
+5. SIDEBAR UPDATE
+
+Modify sidebar navigation:
+
+Rename or add section:
+👉 "Upcoming / Ongoing Events"
+
+Inside sidebar:
+
+A. Upcoming Events:
+event.start_date > current_date
+
+B. Ongoing Events:
+event.start_date <= current_date AND event.end_date >= current_date
+
+Click behavior:
+
+* Opens combined listing page OR scrolls to respective section
+
+---
+
+6. UI / UX IMPROVEMENTS
+
+* Keep tab design minimal (3 tabs only)
+
+* Add badge counts:
+  Ongoing (X)
+  Completed (Y)
+  Cancelled/Rejected (Z)
+
+* Use color coding:
+  Ongoing → Blue/Green
+  Completed → Grey
+  Cancelled → Red
+  Rejected → Orange
+
+* Keep cards compact (reduce height, lighter shadows)
+
+---
+
+7. OPTIONAL (RECOMMENDED BUSINESS LOGIC)
+
+Add tracking fields:
+
+* cancelled_by: ["crew", "admin"]
+* rejection_type: ["client", "system"]
+
+Future use:
+
+* Crew reliability score
+* Auto-prioritization of good performers
+* Flag frequent no-shows
+
+---
+
+END OF SPEC

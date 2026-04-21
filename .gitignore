@@ -1,0 +1,55 @@
+# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+# compiled output
+dist
+# pre-built bundles committed so Hostinger runs without a build step
+!artifacts/api-server/dist/
+!artifacts/manpower-agency/dist/
+tmp
+out-tsc
+*.tsbuildinfo
+.expo
+.expo-shared
+AUTO DEPLOY TEST
+# dependencies
+node_modules
+test
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+test999
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+test123
+# misc
+/.sass-cache
+/connect.lock
+/coverage
+/libpeerconnection.log
+npm-debug.log
+yarn-error.log
+testem.log
+/typings
+
+# System Files
+.DS_Store
+Thumbs.db
+
+.cursor/rules/nx-rules.mdc
+.github/instructions/nx.instructions.md
+
+# Replit
+.cache/
+.local/
+.env
+.env.local
+.env.*
+!.env.example

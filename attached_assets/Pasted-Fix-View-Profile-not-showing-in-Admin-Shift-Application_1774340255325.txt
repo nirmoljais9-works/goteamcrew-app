@@ -1,0 +1,107 @@
+Fix View Profile not showing in Admin (Shift Applications) – complete working solution
+
+Problem:
+- Crew applies for event
+- Application shows in admin
+- But "View Profile" is not visible or not working
+
+ROOT CAUSE:
+- Application data does not properly include or fetch user profile
+- Missing or unused userId linkage
+
+----------------------------------
+1. ENSURE APPLICATION STORES USER ID (CRITICAL)
+
+When crew applies:
+
+Save in application record:
+- userId (MANDATORY)
+- eventId
+- status
+
+Do NOT rely only on name/phone
+
+----------------------------------
+2. FETCH USER PROFILE USING userId
+
+In Admin Shift Applications:
+
+For each application:
+
+- Use userId to fetch full user profile from database
+
+Example:
+getUser(application.userId)
+
+----------------------------------
+3. ALWAYS SHOW VIEW PROFILE (NO CONDITIONS)
+
+Remove any condition like:
+❌ if (application.user exists)
+
+Instead:
+✅ Always show if userId exists
+
+----------------------------------
+4. MAKE CREW NAME CLICKABLE (PRIMARY UX)
+
+- Crew name should be clickable
+
+On click:
+→ Fetch full profile using userId
+→ Open modal
+
+----------------------------------
+5. ADD FALLBACK BUTTON
+
+Also add small button:
+[View Profile]
+
+This ensures visibility even if UI fails
+
+----------------------------------
+6. HANDLE LOADING STATE
+
+When clicking:
+
+- Show loading spinner
+- Fetch user data
+- Then open modal
+
+----------------------------------
+7. PROFILE MODAL CONTENT
+
+Show:
+
+- Profile Image
+- Name
+- Phone
+- Gender
+- City
+- Work Type
+- Experience
+- Past Events (optional)
+
+----------------------------------
+8. DEBUG SAFETY (VERY IMPORTANT)
+
+If profile still not opening:
+
+- Console log application.userId
+- Ensure it is not null/undefined
+
+If missing:
+→ Fix apply API to include userId
+
+----------------------------------
+9. BACKEND VALIDATION
+
+Ensure:
+- userId is correctly saved during apply
+- Database relation exists between users and applications
+
+----------------------------------
+Goal:
+- View Profile ALWAYS visible
+- Works reliably every time
+- Clean + professional UX

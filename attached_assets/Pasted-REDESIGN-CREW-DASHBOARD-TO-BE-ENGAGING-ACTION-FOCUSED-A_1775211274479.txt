@@ -1,0 +1,183 @@
+REDESIGN CREW DASHBOARD TO BE ENGAGING, ACTION-FOCUSED, AND EASY TO USE
+
+---
+
+🎯 GOAL:
+
+When crew opens dashboard, they should instantly see:
+1. Upcoming events they can apply to
+2. Their applied event status
+3. Referral earnings (Refer & Earn)
+4. Pending payments
+5. Clear call-to-actions
+
+---
+
+🧩 NEW DASHBOARD STRUCTURE (TOP TO BOTTOM):
+
+---
+
+1️⃣ HEADER CARD (KEEP BUT IMPROVE)
+
+- Show:
+  Profile photo
+  Name
+  Status (Approved)
+  Roles (Model / Hostess etc.)
+  Location
+
+ADD:
+- Small progress bar:
+  "Profile Strength: 70%" (based on photos, details, etc.)
+
+- CTA button:
+  "Complete Profile" (if incomplete)
+
+---
+
+2️⃣ QUICK ACTION BUTTONS (VERY IMPORTANT)
+
+Add horizontal scroll buttons:
+
+- 🔍 Browse Events
+- 💰 Refer & Earn
+- 📄 My Applications
+- 💳 Payments
+
+(Big buttons, easy tap, mobile friendly)
+
+---
+
+3️⃣ UPCOMING EVENTS (MAIN SECTION)
+
+TITLE: "🔥 Events Near You"
+
+Show 2–3 events preview:
+
+Each card:
+- Event name
+- Date & time
+- Location
+- Pay (₹ amount)
+- Button: "Apply Now"
+
+If no events:
+→ Show: "No events available, check later"
+
+---
+
+4️⃣ MY APPLICATION STATUS
+
+TITLE: "📌 Your Applications"
+
+Show:
+
+- Applied → Pending
+- Selected
+- Rejected
+
+Each item:
+- Event name
+- Status badge:
+   🟡 Pending
+   🟢 Selected
+   🔴 Rejected
+
+Button:
+→ "View Details"
+
+---
+
+5️⃣ REFER & EARN (HIGH FOCUS)
+
+TITLE: "💸 Refer & Earn"
+
+Show:
+- Total earned (₹)
+- Pending referral earnings
+- CTA button: "Invite Friends"
+
+Optional:
+→ Show referral code
+
+---
+
+6️⃣ PAYMENTS SECTION
+
+TITLE: "💰 Your Earnings"
+
+Show 2 cards:
+
+- Pending Payment (₹ amount)
+- Paid Amount (₹ amount)
+
+Button:
+→ "View Payment History"
+
+---
+
+7️⃣ TODAY STATUS (SMART)
+
+IF user has event today:
+
+→ Show big card:
+"Today's Event"
+
+- Event name
+- Check-in button
+- Time
+
+IF no event:
+→ Show current empty state (but better UI)
+
+---
+
+🎨 UI IMPROVEMENTS:
+
+- Use card-based layout (clean spacing)
+- Add icons for each section
+- Reduce empty white space
+- Add subtle shadows
+- Use gradient header (already good)
+
+---
+
+🧠 UX IMPROVEMENTS:
+
+- Default focus = ACTION (apply / earn)
+- Avoid boring stats-only dashboard
+- Prioritize earning + events
+
+---
+
+⚡ OPTIONAL (VERY POWERFUL):
+
+- Add notification badge:
+  "New events available"
+
+- Add "Recommended for you" based on role/location
+
+---
+
+🚀 PERFORMANCE:
+
+- Load top 3 events only (fast)
+- Lazy load rest on click
+
+---
+
+🔒 RULE:
+
+Crew should NOT see:
+- Admin controls
+- Sensitive data
+
+Only their relevant data
+
+---
+
+🎯 FINAL RESULT:
+
+Dashboard should feel like:
+→ Opportunities + Money + Action
+NOT just info

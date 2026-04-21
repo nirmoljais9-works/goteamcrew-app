@@ -1,0 +1,20 @@
+packages:
+  "framer-motion": "For page transitions and interactive element animations"
+  "recharts": "For admin dashboard statistics and earnings charts"
+  "date-fns": "For formatting shift times and event dates professionally"
+  "react-hook-form": "For robust form state management"
+  "@hookform/resolvers": "For Zod schema validation in forms"
+  "zod": "For defining form validation schemas"
+
+images:
+  - path: "artifacts/manpower-agency/public/images/hero-bg.png"
+    description: "Modern abstract architectural background with deep slate and vibrant blue accents, professional corporate feel, subtle gradient lighting"
+    aspect_ratio: "16:9"
+  - path: "artifacts/manpower-agency/public/images/auth-side.png"
+    description: "Abstract representation of event crowds and stage lighting, professional, dark slate and indigo color palette, clean vector style"
+    aspect_ratio: "9:16"
+
+notes:
+  - Auth is handled via session cookies.
+  - Role-based routing required (admin vs crew).
+  - API imports are from @workspace/api-client-react.

@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Event Manpower Agency"
+version = "1.0.0"
+id = "artifacts/manpower-agency"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+localPort = 24516
+name = "web"
+paths = ["/"]
+
+[services.development]
+run = "pnpm --filter @workspace/manpower-agency run dev"
+
+[services.env]
+PORT = "24516"
+BASE_PATH = "/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/manpower-agency", "run", "build"]
+publicDir = "artifacts/manpower-agency/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"

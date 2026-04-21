@@ -1,0 +1,105 @@
+TASK: Add Edit Icon to Payment Details (Premium Minimal UI - Icon Only)
+
+OBJECTIVE:
+Add a subtle **edit pencil icon (✏️ only, no text)** to the Payment Details section. Keep UI ultra-clean, minimal, and premium. Changes should update instantly. No masking, no admin approval.
+
+---
+
+1. EDIT ICON (TOP RIGHT)
+
+* Place a **pencil icon (✏️ only, no "Edit" text)** at the top-right of the "Payment Details" header
+* Align it horizontally with the heading
+
+STYLE:
+
+* Icon size: 16–18px
+* Color: muted grey or soft primary
+* No background, no border
+* Minimal clickable padding (8px tap area for usability)
+* Slight rounded hover area (very subtle)
+
+INTERACTION:
+
+* On hover: opacity 70–80% or very light background highlight
+* On click/tap: subtle feedback
+
+---
+
+2. KEEP APPROVED CARD CLEAN
+
+* Do NOT place icon inside the green "Approved Payment Details" box
+* Icon should only be in header area
+
+---
+
+3. EDIT FLOW
+
+* On clicking pencil icon → open full-screen modal (mobile) or centered modal (desktop)
+
+---
+
+4. EDITABLE FIELDS (PRE-FILLED)
+
+* Account Holder Name
+* Bank Name
+* Branch
+* IFSC Code
+* Account Number
+* UPI ID
+
+---
+
+5. EDIT SCREEN UI
+
+* Clean vertical form layout
+* Labels above inputs
+* Same spacing as onboarding UI
+* Rounded input fields
+
+BOTTOM ACTIONS (sticky):
+
+* Left: Cancel (text button)
+* Right: Save Changes (primary button)
+
+---
+
+6. SAVE LOGIC
+
+* On clicking "Save Changes":
+
+  * Instantly update payment details
+  * Show toast: "Payment details updated successfully"
+  * Status remains ✅ Approved
+
+---
+
+7. MICRO UX IMPROVEMENTS
+
+* Show full account number (no masking)
+
+* Add copy icon for:
+
+  * Account Number
+  * UPI ID
+
+* Add subtle divider between rows
+
+---
+
+8. IMPORTANT RULES
+
+* Icon only (no "Edit" text anywhere)
+* No admin approval flow
+* No masking
+* No heavy UI elements
+* No icon inside green card
+* Maintain ultra minimal fintech-style UI
+
+---
+
+EXPECTED RESULT:
+
+* Very clean UI like modern fintech apps
+* Only subtle pencil icon for edit
+* Smooth and instant edit experience
+* No visual clutter

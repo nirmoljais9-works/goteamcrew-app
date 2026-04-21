@@ -1,0 +1,127 @@
+TASK: Add “Introduction Video” Section Below Portfolio Photos (Updated Requirements)
+
+OBJECTIVE:  
+Add an Introduction Video section BELOW the Portfolio Photos section. This allows crew to upload a structured intro video that improves profile quality and contributes to profile strength.
+
+---
+
+1. SECTION PLACEMENT
+
+- Place this section directly below “Portfolio Photos”  
+- Maintain same spacing and card style as Portfolio section  
+
+---
+
+2. SECTION HEADER
+
+Title: Introduction Video  
+Subtitle: Add a short intro video to increase your chances of getting selected  
+
+Badges:
+- “Recommended”  
+- “High Impact”  
+
+---
+
+3. EMPTY STATE (NO VIDEO)
+
+Design a clean upload card:
+
+- Dashed border box (same as Add Photo)  
+- Center icon: 🎥 or play icon  
+
+Text:
+
+Upload Introduction Video  
+Tell clients about yourself and your experience  
+
+CTA:
+→ “Upload Video”
+
+---
+
+4. INSTRUCTIONS (IMPORTANT - UPDATED)
+
+Show below upload box:
+
+What to include in your video:
+- Name  
+- Age  
+- Height  
+- Education / Qualifications  
+- Experience  
+- (If fresher: why you want to join events)
+
+Tips:
+- Speak clearly and confidently  
+- Use good lighting  
+- Keep background clean  
+
+---
+
+5. VIDEO REQUIREMENTS (UPDATED)
+
+- Minimum duration: 30 seconds  
+- Maximum duration: 1 minute  
+- Max size: 20MB  
+- Formats: MP4 / MOV  
+
+---
+
+6. AFTER UPLOAD STATE
+
+Replace upload box with:
+
+- Video thumbnail preview  
+- Play button overlay  
+- Show duration  
+
+Below video:
+- “Change Video” (text button)  
+- Delete icon (small, subtle)  
+
+---
+
+7. STATUS INDICATOR
+
+- If no video:
+  → Show: “Not added”  
+
+- If uploaded:
+  → Show: ✅ “Added”  
+
+---
+
+8. PROFILE STRENGTH WEIGHTAGE (IMPORTANT)
+
+- Introduction Video should contribute to Profile Strength (same as Portfolio Photos)  
+
+Example:
+- Show progress increase when video is uploaded  
+- Label: “+ Profile Strength Increased”  
+
+---
+
+9. MICRO UX
+
+- Upload progress indicator  
+- Success toast: “Video uploaded successfully”  
+
+---
+
+10. DESIGN RULES
+
+- Same UI style as Portfolio Photos  
+- Rounded corners  
+- Minimal, clean layout  
+- No heavy colors or buttons  
+
+---
+
+EXPECTED RESULT:
+
+- Seamless flow after portfolio photos  
+- Clear guidance on what to speak in video  
+- Stronger, more professional profiles  
+- Increased selection chances  
+- Contribution to profile strength system

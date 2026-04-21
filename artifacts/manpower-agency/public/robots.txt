@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://goteamcrew.com/sitemap.xml

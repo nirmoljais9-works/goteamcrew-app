@@ -1,0 +1,99 @@
+Create a complete Referral Payments system in Admin Dashboard with admin approval control and full sync with Crew Dashboard.
+
+REQUIREMENTS:
+
+-------------------------------------
+1. NEW SECTION IN ADMIN
+-------------------------------------
+- Add "Referral Payments" in admin sidebar
+
+-------------------------------------
+2. SHOW ONLY VALID REFERRALS
+-------------------------------------
+Display ONLY referrals where:
+- Candidate was selected for event
+- Event is completed
+- Candidate attended
+
+-------------------------------------
+3. ADD REFERRAL STATUS FLOW
+-------------------------------------
+Referral lifecycle should be:
+
+Referred → Registered → Selected → Event Completed → Pending Approval → Successful → Paid
+
+-------------------------------------
+4. ADD "PENDING APPROVAL" STAGE (IMPORTANT)
+-------------------------------------
+After event completion:
+- Do NOT mark as successful directly
+- Set status = "Pending Approval"
+
+-------------------------------------
+5. ADMIN ACTION (CORE FEATURE)
+-------------------------------------
+In Referral Payments section, for each entry show:
+
+- Referrer name
+- Referred candidate name
+- Event name
+- Event date
+- Reward amount (₹)
+- Status
+
+Add buttons:
+- Approve Referral
+- Reject Referral
+
+-------------------------------------
+6. APPROVAL LOGIC
+-------------------------------------
+
+IF admin clicks "Approve":
+→ Status = Successful
+→ Add reward to crew "Pending Earnings"
+
+IF admin clicks "Reject":
+→ Status = Rejected Referral
+→ No reward given
+
+-------------------------------------
+7. PAYMENT LOGIC
+-------------------------------------
+
+For Successful referrals:
+- Default = Unpaid
+
+Add button:
+→ "Mark as Paid"
+
+IF clicked:
+→ Status = Paid
+→ Move amount from "Pending Earnings" → "Confirmed Earnings"
+
+-------------------------------------
+8. CREW DASHBOARD SYNC
+-------------------------------------
+
+Show statuses clearly:
+
+- Pending Approval:
+  "₹100 — Awaiting admin approval"
+
+- Successful (Unpaid):
+  "₹100 — Pending payout"
+
+- Paid:
+  "₹100 — Paid"
+
+-------------------------------------
+9. FILTERS (ADMIN SIDE)
+-------------------------------------
+Add filters:
+- All / Pending Approval / Successful / Paid / Rejected
+- Filter by event
+- Filter by date
+
+-------------------------------------
+GOAL:
+Create a simple, controlled, and trackable referral system where admin verifies performance before rewarding, and all data is clearly visible and synced with crew dashboard.

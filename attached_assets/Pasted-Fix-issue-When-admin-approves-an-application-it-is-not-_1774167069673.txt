@@ -1,0 +1,164 @@
+Fix issue: When admin approves an application, it is not visible in crew dashboard.
+
+---
+
+CORE GOAL
+
+Create a proper "Application System" so crew can see:
+✔ Applied events
+✔ Approval status
+✔ Confirmed shifts
+
+---
+
+1. CREATE APPLICATION DATA STRUCTURE (VERY IMPORTANT)
+
+Create a separate collection/table:
+
+applications:
+
+* id
+* userId
+* eventId
+* status ("pending", "approved", "rejected")
+* createdAt
+
+---
+
+2. WHEN CREW APPLIES
+
+On "Apply Now":
+
+* Create application record:
+  userId = logged-in user
+  eventId = selected event
+  status = "pending"
+
+---
+
+3. WHEN ADMIN APPROVES / REJECTS
+
+On admin action:
+
+* Update application:
+  status = "approved" OR "rejected"
+
+---
+
+4. CREW DASHBOARD API
+
+Create endpoint:
+
+GET /my-applications
+
+Logic:
+
+* Fetch applications where userId = logged-in user
+* Join with event details
+
+Return:
+
+* event title
+* location
+* dates
+* pay
+* application status
+
+---
+
+5. SHOW IN CREW DASHBOARD (IMPORTANT UI)
+
+Create section:
+"My Shifts"
+
+---
+
+IF status = "pending":
+
+Show:
+
+* Event details
+* Tag: 🟡 Pending
+
+---
+
+IF status = "approved":
+
+Show:
+
+* Event details
+* Tag: 🟢 Approved
+* Badge: "Confirmed Shift"
+
+---
+
+IF status = "rejected":
+
+Show:
+
+* Event details
+* Tag: 🔴 Not Selected
+
+---
+
+6. SUCCESS FEEDBACK (VERY IMPORTANT UX)
+
+After approval:
+
+Show message:
+"Your application has been approved 🎉"
+
+---
+
+7. REAL-TIME UPDATE
+
+After admin action:
+
+* Refresh crew dashboard automatically
+  OR
+* Poll API every few seconds
+
+---
+
+8. APPLY FLOW IMPROVEMENT (ALREADY DISCUSSED)
+
+Before applying:
+
+Show popup:
+
+* "Apply only if you are available for all days"
+* "Backout may lead to blacklisting"
+
+Add checkbox:
+"I confirm I am serious"
+
+---
+
+9. DATA VALIDATION (IMPORTANT)
+
+Prevent:
+
+* Duplicate applications (same user + same event)
+
+---
+
+10. DEBUG (MANDATORY)
+
+Add logs:
+
+console.log("Applications:", applications)
+console.log("User ID:", userId)
+
+---
+
+11. FINAL RESULT
+
+✔ Crew applies → sees "Pending"
+✔ Admin approves → sees "Approved"
+✔ Event marked as "Confirmed Shift"
+✔ No confusion in system
+
+---
+
+DO NOT CHANGE UI DESIGN
+ONLY FIX DATA FLOW + STATUS SYSTEM

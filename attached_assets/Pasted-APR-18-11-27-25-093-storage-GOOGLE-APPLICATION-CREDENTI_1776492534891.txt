@@ -1,0 +1,164 @@
+APR 18,11:27:25.093
+[storage] GOOGLE_APPLICATION_CREDENTIALS detected — /home/u793496221/domains/goteamcrew.com/nodejs/keys/goteam-storage-493607-868859f696cc.json
+APR 18,11:27:25.093
+[storage] Initializing GCS with file credentials
+APR 18,11:27:25.112
+(node:34797) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+APR 18,11:27:25.112
+(node:34797) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+APR 18,11:27:25.113
+Server listening on port 3000
+APR 18,11:27:26.402
+[db] uploaded_files table ready
+APR 18,11:28:18.259
+[crew-delete] Deleted 2 GCS object(s) for crew 4
+APR 18,11:28:30.480
+[crew-delete] Deleted 3 GCS object(s) for crew 5
+APR 18,11:30:46.110
+[uploadFileToStorage/auth] file: IMG_1349.jpeg mime: image/jpeg ext: .jpeg size: 238137
+APR 18,11:30:46.111
+uploadBuffer called
+APR 18,11:30:46.111
+Checking GCS condition: /home/u793496221/domains/goteamcrew.com/nodejs/keys/goteam-storage-493607-868859f696cc.json
+APR 18,11:30:46.111
+[uploadBuffer] objectStorageClient: INITIALIZED
+APR 18,11:30:46.111
+[uploadBuffer] buffer size: 238137 contentType: image/jpeg ext: .jpeg
+APR 18,11:30:46.111
+GCS upload function triggered
+APR 18,11:30:46.111
+[uploadBuffer] GOOGLE_APPLICATION_CREDENTIALS is a file path: /home/u793496221/domains/goteamcrew.com/nodejs/keys/goteam-storage-493607-868859f696cc.json
+APR 18,11:30:46.111
+[uploadBuffer] GCS bucket: goteamcrew-files object: uploads/4a7239b9-2c9b-4a41-b13d-29bf2fd82668.jpeg
+APR 18,11:30:46.112
+[uploadBuffer] calling file.save()...
+APR 18,11:30:46.117
+[uploadFileToStorage/auth] file: selfie.jpg mime: image/jpeg ext: .jpg size: 75685
+APR 18,11:30:46.117
+uploadBuffer called
+APR 18,11:30:46.117
+Checking GCS condition: /home/u793496221/domains/goteamcrew.com/nodejs/keys/goteam-storage-493607-868859f696cc.json
+APR 18,11:30:46.117
+[uploadBuffer] objectStorageClient: INITIALIZED
+APR 18,11:30:46.117
+[uploadBuffer] buffer size: 75685 contentType: image/jpeg ext: .jpg
+APR 18,11:30:46.117
+GCS upload function triggered
+APR 18,11:30:46.117
+[uploadBuffer] GOOGLE_APPLICATION_CREDENTIALS is a file path: /home/u793496221/domains/goteamcrew.com/nodejs/keys/goteam-storage-493607-868859f696cc.json
+APR 18,11:30:46.117
+[uploadBuffer] GCS bucket: goteamcrew-files object: uploads/093b3c19-526d-4335-8f84-8f173e3be433.jpg
+APR 18,11:30:46.117
+[uploadBuffer] calling file.save()...
+APR 18,11:30:46.128
+[uploadBuffer] GCS upload FAILED — code: ENOENT message: The file at /home/u793496221/domains/goteamcrew.com/nodejs/keys/goteam-storage-493607-868859f696cc.json does not exist, or it is not a file. ENOENT: no such file or directory, lstat '/home/u793496221/domains/goteamcrew.com/nodejs/keys'
+APR 18,11:30:46.128
+[uploadBuffer] Full GCS error: {
+"errno": -2,
+"code": "ENOENT",
+"syscall": "lstat",
+"path": "/home/u793496221/domains/goteamcrew.com/nodejs/keys"
+}
+APR 18,11:30:46.128
+[uploadBuffer] Falling back to database storage
+APR 18,11:30:46.128
+[uploadBuffer] Inserting into database...
+APR 18,11:30:46.128
+[uploadBuffer] GCS upload FAILED — code: ENOENT message: The file at /home/u793496221/domains/goteamcrew.com/nodejs/keys/goteam-storage-493607-868859f696cc.json does not exist, or it is not a file. ENOENT: no such file or directory, lstat '/home/u793496221/domains/goteamcrew.com/nodejs/keys'
+APR 18,11:30:46.128
+[uploadBuffer] Full GCS error: {
+"errno": -2,
+"code": "ENOENT",
+"syscall": "lstat",
+"path": "/home/u793496221/domains/goteamcrew.com/nodejs/keys"
+}
+APR 18,11:30:46.128
+[uploadBuffer] Falling back to database storage
+APR 18,11:30:46.128
+[uploadBuffer] Inserting into database...
+APR 18,11:30:46.783
+[uploadBuffer] DB fallback complete, URL: /api/storage/objects/db/6
+APR 18,11:30:46.857
+[uploadBuffer] DB fallback complete, URL: /api/storage/objects/db/7
+APR 18,11:30:47.046
+[register] referralSource: College Poster | referralOther: undefined | heardAboutUs: College Poster
+APR 18,11:31:28.766
+[admin/crew/6] source: College Poster
+APR 18,11:32:09.923
+[admin/crew/6] source: College Poster
+APR 18,11:36:10.553
+[uploadFileToStorage/auth] file: 0b0ca345-6a26-4cd8-b3c3-b40686ace1c4.jpeg mime: image/jpeg ext: .jpeg size: 145696
+APR 18,11:36:10.553
+uploadBuffer called
+APR 18,11:36:10.553
+Checking GCS condition: /home/u793496221/domains/goteamcrew.com/nodejs/keys/goteam-storage-493607-868859f696cc.json
+APR 18,11:36:10.553
+[uploadBuffer] objectStorageClient: INITIALIZED
+APR 18,11:36:10.553
+[uploadBuffer] buffer size: 145696 contentType: image/jpeg ext: .jpeg
+APR 18,11:36:10.553
+GCS upload function triggered
+APR 18,11:36:10.553
+[uploadBuffer] GOOGLE_APPLICATION_CREDENTIALS is a file path: /home/u793496221/domains/goteamcrew.com/nodejs/keys/goteam-storage-493607-868859f696cc.json
+APR 18,11:36:10.553
+[uploadBuffer] GCS bucket: goteamcrew-files object: uploads/df61a2bb-13c7-4583-a19e-71b55aa4169d.jpeg
+APR 18,11:36:10.553
+[uploadBuffer] calling file.save()...
+APR 18,11:36:10.554
+[uploadFileToStorage/auth] file: selfie.jpg mime: image/jpeg ext: .jpg size: 67745
+APR 18,11:36:10.554
+uploadBuffer called
+APR 18,11:36:10.554
+Checking GCS condition: /home/u793496221/domains/goteamcrew.com/nodejs/keys/goteam-storage-493607-868859f696cc.json
+APR 18,11:36:10.554
+[uploadBuffer] objectStorageClient: INITIALIZED
+APR 18,11:36:10.554
+[uploadBuffer] buffer size: 67745 contentType: image/jpeg ext: .jpg
+APR 18,11:36:10.554
+GCS upload function triggered
+APR 18,11:36:10.554
+[uploadBuffer] GOOGLE_APPLICATION_CREDENTIALS is a file path: /home/u793496221/domains/goteamcrew.com/nodejs/keys/goteam-storage-493607-868859f696cc.json
+APR 18,11:36:10.554
+[uploadBuffer] GCS bucket: goteamcrew-files object: uploads/d381191c-ebe6-4370-bcf0-c1f207ad1658.jpg
+APR 18,11:36:10.554
+[uploadBuffer] calling file.save()...
+APR 18,11:36:10.558
+[uploadBuffer] GCS upload FAILED — code: ENOENT message: The file at /home/u793496221/domains/goteamcrew.com/nodejs/keys/goteam-storage-493607-868859f696cc.json does not exist, or it is not a file. ENOENT: no such file or directory, lstat '/home/u793496221/domains/goteamcrew.com/nodejs/keys'
+APR 18,11:36:10.558
+[uploadBuffer] Full GCS error: {
+"errno": -2,
+"code": "ENOENT",
+"syscall": "lstat",
+"path": "/home/u793496221/domains/goteamcrew.com/nodejs/keys"
+}
+APR 18,11:36:10.558
+[uploadBuffer] Falling back to database storage
+APR 18,11:36:10.558
+[uploadBuffer] Inserting into database...
+APR 18,11:36:10.558
+[uploadBuffer] GCS upload FAILED — code: ENOENT message: The file at /home/u793496221/domains/goteamcrew.com/nodejs/keys/goteam-storage-493607-868859f696cc.json does not exist, or it is not a file. ENOENT: no such file or directory, lstat '/home/u793496221/domains/goteamcrew.com/nodejs/keys'
+APR 18,11:36:10.558
+[uploadBuffer] Full GCS error: {
+"errno": -2,
+"code": "ENOENT",
+"syscall": "lstat",
+"path": "/home/u793496221/domains/goteamcrew.com/nodejs/keys"
+}
+APR 18,11:36:10.558
+[uploadBuffer] Falling back to database storage
+APR 18,11:36:10.558
+[uploadBuffer] Inserting into database...
+APR 18,11:36:10.863
+[uploadBuffer] DB fallback complete, URL: /api/storage/objects/db/8
+APR 18,11:36:11.249
+[uploadBuffer] DB fallback complete, URL: /api/storage/objects/db/9
+APR 18,11:36:11.451
+[register] referralSource: College Poster | referralOther: undefined | heardAboutUs: College Poster
+APR 18,11:36:29.453
+[admin/crew/7] source: College Poster

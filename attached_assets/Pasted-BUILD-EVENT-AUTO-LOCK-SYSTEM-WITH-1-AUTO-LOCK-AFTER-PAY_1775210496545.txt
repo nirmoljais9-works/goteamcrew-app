@@ -1,0 +1,172 @@
+BUILD EVENT AUTO-LOCK SYSTEM WITH:
+1. AUTO LOCK AFTER PAYMENT
+2. AUTO LOCK AFTER EVENT COMPLETION
+3. MANUAL UNLOCK WITH ADMIN PASSWORD
+4. EDIT RESTRICTIONS WHEN LOCKED
+5. AUDIT LOG TRACKING
+
+---
+
+🎯 GOAL:
+
+Once an event is completed OR payment is processed,
+→ it should become LOCKED
+→ no edits allowed unless admin unlocks with password
+
+---
+
+🧩 DATABASE CHANGE:
+
+Add new field in events table:
+
+- is_locked: boolean (default: false)
+- locked_reason: "payment" | "completed" | null
+- locked_at: timestamp
+
+---
+
+⚡ AUTO LOCK CONDITIONS:
+
+1. AFTER PAYMENT:
+
+IF all crew payments for event are marked "paid":
+ → set is_locked = true
+ → locked_reason = "payment"
+ → locked_at = current time
+
+---
+
+2. AFTER EVENT COMPLETION:
+
+IF event date < current date AND status = completed:
+ → auto lock event
+ → locked_reason = "completed"
+
+---
+
+🔒 LOCKED STATE UI:
+
+When event is locked:
+
+- Disable:
+  ❌ Edit event
+  ❌ Assign crew
+  ❌ Change slots
+  ❌ Modify attendance
+  ❌ Modify payments
+  ❌ Delete event (optional: allow only after unlock)
+
+- Show badge:
+  🔒 "Locked (Payment Done)" OR "Locked (Completed)"
+
+- Show tooltip:
+  "This event is locked. Unlock to make changes."
+
+---
+
+🔓 UNLOCK SYSTEM (ADMIN ONLY):
+
+Add "Unlock" button on locked event
+
+On click:
+
+→ Open modal:
+
+-----------------------------------
+TITLE: "Unlock Event"
+
+MESSAGE:
+"This event is locked due to [payment/completion].
+Enter admin password to unlock and allow edits."
+
+INPUT:
+- Password field
+
+BUTTONS:
+- Cancel
+- Unlock Event
+-----------------------------------
+
+---
+
+🔐 PASSWORD VALIDATION:
+
+IF password empty:
+ → show "Password required"
+
+IF incorrect:
+ → show "Incorrect password"
+
+IF correct:
+ → unlock event:
+
+   is_locked = false
+   locked_reason = null
+
+→ Show success:
+"Event unlocked successfully"
+
+---
+
+⚠️ IMPORTANT RULE:
+
+After unlocking:
+→ Event CAN be edited
+→ BUT system should re-lock automatically again if:
+   - Payment still marked complete
+   - Event still completed
+
+(so unlock is temporary unless data changes)
+
+---
+
+📊 AUDIT LOG (MANDATORY):
+
+Track all actions:
+
+- LOCKED (auto)
+- UNLOCKED (manual)
+
+Fields:
+- event_id
+- action: "LOCK" / "UNLOCK"
+- reason: "payment" / "completed"
+- admin_email
+- timestamp
+
+---
+
+🎨 UI IMPROVEMENTS:
+
+- Show lock icon 🔒 on event card
+- Locked events slightly greyed out
+- Add filter tab:
+   "Locked Events"
+
+---
+
+🧠 UX SIMPLIFICATION:
+
+- No complex steps
+- One-click unlock → password → done
+- Clear visual lock status
+
+---
+
+🚀 BONUS (OPTIONAL):
+
+Add toggle in settings:
+
+"Auto Lock Events"
+
+IF OFF:
+→ No automatic locking
+→ Only manual lock allowed
+
+---
+
+🔒 SECURITY:
+
+- Only admin can unlock
+- Password must be backend verified
+- Log failed unlock attempts

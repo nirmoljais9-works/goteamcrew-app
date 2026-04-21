@@ -1,0 +1,170 @@
+Upgrade event + shift system with dynamic slot control, auto sync, and improved UI.
+
+---
+
+1. ADD FIELD IN EVENT CREATION FORM:
+
+Add new input:
+
+Label: "Total Slots"
+Type: Number
+Placeholder: e.g. 10
+
+Save in database:
+total_slots
+
+---
+
+2. TRACK APPLICATIONS:
+
+Each crew application stored in:
+shift_claims table
+
+Fields include:
+
+* user_id
+* event_id
+* status ("pending", "approved", "rejected")
+
+---
+
+3. AUTO SLOT CALCULATION (IMPORTANT):
+
+DO NOT store slots_left manually.
+
+Always calculate:
+
+approved_count = count of shift_claims where:
+
+* event_id = current event
+* status = "approved"
+
+slots_left = total_slots - approved_count
+
+---
+
+4. AUTO UPDATE ON APPROVE / REVOKE:
+
+When admin clicks APPROVE:
+→ status = "approved"
+→ slots_left automatically reduces
+
+When admin clicks REVOKE (back to pending):
+→ status = "pending"
+→ slots_left increases automatically
+
+When admin REJECTS:
+→ no effect on slots
+
+---
+
+5. PREVENT OVERBOOKING:
+
+IF approved_count >= total_slots:
+→ Block further approvals
+→ Show error:
+"All slots are filled"
+
+---
+
+6. SEND DATA TO BOTH DASHBOARDS:
+
+API response must include:
+
+{
+total_slots,
+approved_count,
+slots_left
+}
+
+---
+
+7. CREW DASHBOARD CARD UI:
+
+Show:
+
+IF slots_left > 3:
+"X spots left"
+
+IF slots_left <= 3:
+"Only X spots left" (highlight in red/orange)
+
+IF slots_left === 0:
+Show:
+"Full"
+Disable "Apply Now" button
+
+---
+
+8. REMOVE DRESS CODE BADGE FROM CARD:
+
+Remove:
+"Business Suite" badge from card view
+
+Keep dress code ONLY in:
+→ event detail page
+
+---
+
+9. AUTO HIDE COMPLETED EVENTS:
+
+IF event end_date < today:
+→ Do not show in "Browse Shifts"
+
+---
+
+10. ADMIN CONTROL:
+
+Allow admin to:
+
+* Edit total_slots anytime
+* Changes reflect instantly everywhere
+
+---
+
+11. REAL-TIME SYNC (IMPORTANT):
+
+After:
+
+* approve
+* reject
+* revoke
+
+Immediately:
+
+* Update slots_left
+* Update crew dashboard
+* Update admin dashboard
+
+(No page refresh needed)
+
+---
+
+12. BONUS (SMART UX - MUST ADD):
+
+IF slots_left === 0:
+→ Show badge: "Closed"
+→ Disable Apply button
+→ Optionally hide event after few hours
+
+---
+
+13. OPTIONAL (ADVANCED FILTER):
+
+Only show events to crew where:
+
+* slots_left > 0
+* OR show "Full" but disabled
+
+---
+
+FINAL RESULT:
+
+✔ Slots auto reduce on approval
+✔ Slots auto increase on revoke
+✔ No manual tracking needed
+✔ No overbooking
+✔ Real-time sync across dashboards
+✔ Clean UI (no unnecessary badges)
+✔ Creates urgency (few spots left)
+✔ Fully professional hiring system

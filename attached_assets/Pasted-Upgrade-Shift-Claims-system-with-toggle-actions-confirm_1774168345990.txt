@@ -1,0 +1,169 @@
+Upgrade Shift Claims system with toggle actions, confirmation, and auto notifications.
+
+---
+
+1. STATUS FLOW:
+
+Allowed statuses:
+
+* "pending"
+* "approved"
+* "rejected"
+
+Transitions:
+
+* pending → approved
+* pending → rejected
+* approved → pending (revoke)
+* rejected → pending (revoke)
+
+---
+
+2. BUTTON LOGIC (UI):
+
+IF status === "pending":
+Show:
+[Approve] (green)
+[Reject] (red)
+
+IF status === "approved":
+Show:
+[Revoke Approval] (orange or gray)
+
+IF status === "rejected":
+Show:
+[Revoke Rejection] (orange or gray)
+
+---
+
+3. CLICK ACTION LOGIC:
+
+APPROVE BUTTON:
+
+IF status === "pending":
+→ set status = "approved"
+
+IF status === "approved":
+→ set status = "pending"
+
+---
+
+REJECT BUTTON:
+
+IF status === "pending":
+→ open confirmation popup:
+"Are you sure you want to reject this application?"
+
+IF confirmed:
+→ set status = "rejected"
+
+IF status === "rejected":
+→ set status = "pending"
+
+---
+
+4. BACKEND API:
+
+PATCH /shift-claims/:id
+
+Body:
+{
+status: "approved" | "rejected" | "pending"
+}
+
+---
+
+5. CREW DASHBOARD SYNC:
+
+IF status = "approved":
+→ Show in "My Shifts"
+→ Mark as "Confirmed"
+
+IF status = "pending":
+→ Remove from "My Shifts"
+→ Show "Application Pending"
+
+IF status = "rejected":
+→ Remove from "My Shifts"
+→ Show "Application Rejected"
+
+---
+
+6. AUTO WHATSAPP MESSAGE:
+
+When status changes:
+
+IF approved:
+Message:
+"Hi {{name}}, your profile has been selected for {{event_name}} 🎉
+
+📍 {{location}}
+📅 {{date}}
+💰 ₹{{pay}}/day
+
+You can view details in your dashboard.
+
+* Goteamcrew Team"
+
+---
+
+IF rejected:
+Message:
+"Hi {{name}}, thank you for applying for {{event_name}}.
+
+Currently, we could not select your profile. You can apply again for upcoming events.
+
+👉 {{apply_link}}
+
+* Goteamcrew Team"
+
+---
+
+IF reverted to pending:
+NO message needed
+
+---
+
+7. AUTO EMAIL (OPTIONAL BUT ADD):
+
+Send same message via email also.
+
+---
+
+8. UI FEEDBACK:
+
+After action show toast:
+
+* "Approved successfully"
+* "Rejected"
+* "Reverted to pending"
+
+---
+
+9. IMPORTANT LOGIC:
+
+When reverting to "pending":
+
+* Remove crew from confirmed shifts
+* Update crew dashboard instantly
+
+---
+
+10. SORTING:
+
+Shift Claims list order:
+
+1. Pending (top priority)
+2. Approved
+3. Rejected
+
+---
+
+FINAL RESULT:
+
+✔ One-click approve/reject
+✔ Easy undo (revoke)
+✔ No accidental rejection (confirmation added)
+✔ Crew gets instant WhatsApp + email
+✔ Dashboard always in sync
+✔ Clean admin workflow

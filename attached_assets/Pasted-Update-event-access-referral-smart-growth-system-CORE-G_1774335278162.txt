@@ -1,0 +1,126 @@
+Update event access + referral + smart growth system:
+
+CORE GOAL:
+- Everyone can SEE all events
+- Only eligible users can APPLY
+- Others can REFER and earn rewards
+
+----------------------------------
+1. EVENT ELIGIBILITY LOGIC
+
+Event Field:
+- eligibleGender: "Male" / "Female" / "Both"
+
+User Field:
+- user.gender: "Male" / "Female"
+
+Dashboard:
+- Show ALL events to all users
+
+Event Detail Logic:
+
+If event.eligibleGender == "Both" OR event.eligibleGender == user.gender:
+  → Show "Apply for Shift" button
+
+Else:
+  → Hide Apply button
+  → Show "Refer & Earn" button
+
+UI:
+- Show tag:
+  - "Male Only"
+  - "Female Only"
+  - "Open for All"
+
+- If not eligible:
+  Show message:
+  "This event is not available for your profile, but you can refer and earn."
+
+----------------------------------
+2. BACKEND SECURITY (IMPORTANT)
+
+- Block apply API if gender not matching
+- Even if frontend is bypassed, application must fail
+
+----------------------------------
+3. REFERRAL SYSTEM (BASIC)
+
+On "Refer & Earn" click:
+- Options:
+  1. Enter friend's phone number
+  2. Generate shareable referral link
+
+Store:
+- eventId
+- referrerId
+- referredPhone OR referralLink
+- status: pending / joined
+
+----------------------------------
+4. REFERRAL REWARD SYSTEM (NEW)
+
+- Add reward field in event:
+  referralReward (example: ₹200)
+
+- When referred person joins and gets approved:
+  → Mark referral as "successful"
+  → Add reward to referrer wallet
+
+- Show message:
+  "You earned ₹{amount} for this referral"
+
+----------------------------------
+5. WHATSAPP SHARE INTEGRATION (NEW)
+
+- Add "Share via WhatsApp" button
+
+Message format:
+"Hey! There's an event job available:
+{eventName}
+Date: {date}
+Location: {location}
+Payment: ₹{amount}
+
+Apply here: {referralLink}"
+
+- Clicking button should open WhatsApp share link
+
+----------------------------------
+6. TOP REFERRER SYSTEM (NEW)
+
+- Track:
+  - Total referrals per user
+  - Successful referrals
+  - Total earnings
+
+- Create leaderboard section:
+  "Top Referrers"
+
+- Show:
+  - Name
+  - Number of successful referrals
+  - Earnings
+
+----------------------------------
+7. UI IMPROVEMENTS
+
+- Event Card:
+  - Clean layout
+  - Gender tag
+  - Payment highlight
+  - Buttons:
+    - Apply OR Refer & Earn
+
+- Add small badge:
+  "Earn ₹{reward}" on referral-eligible events
+
+----------------------------------
+8. FUTURE READY STRUCTURE
+
+- Keep system scalable for:
+  - Work type filtering
+  - City-based matching
+  - Experience level
+
+Keep code clean, modular, and mobile-friendly.
+Focus on simplicity + growth + performance.

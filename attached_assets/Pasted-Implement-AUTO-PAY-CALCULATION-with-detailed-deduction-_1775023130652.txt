@@ -1,0 +1,89 @@
+Implement AUTO PAY CALCULATION with detailed deduction reasons and expandable UI in attendance system.
+
+1. Base Setup:
+- Base Pay (example: ₹1500)
+- Shift Duration (example: 8 hours = 480 minutes)
+
+2. Per Minute Rate:
+per_minute_rate = base_pay / total_shift_minutes
+
+3. Time Calculations:
+- late_minutes = max(0, check_in_time - shift_start_time)
+- early_exit_minutes = max(0, shift_end_time - check_out_time)
+- total_deduction_minutes = late_minutes + early_exit_minutes
+
+4. Deduction Amount:
+- late_deduction = late_minutes * per_minute_rate
+- early_exit_deduction = early_exit_minutes * per_minute_rate
+- total_deduction = late_deduction + early_exit_deduction
+
+5. Final Pay:
+final_pay = base_pay - total_deduction
+- Round final_pay to nearest rupee
+
+6. Attendance View (Bottom Section UI):
+
+Replace current "Pay" input with:
+
+AUTO PAYMENT SUMMARY:
+
+- Base Pay: ₹XXXX
+- Late: Xh Ym → -₹XXX
+- Early Exit: Xh Ym → -₹XXX
+- Total Deduction: -₹XXX
+- Final Pay (Auto): ₹XXXX
+
+7. Reason Generation (AUTO):
+
+Generate clear sentence:
+
+If only late:
+"₹XXX deducted for Xh Ym late."
+
+If only early exit:
+"₹XXX deducted for Xh Ym early exit."
+
+If both:
+"₹XXX deducted for Xh Ym late + ₹XXX deducted for Xh Ym early exit."
+
+Always add:
+"Final Pay: ₹XXXX"
+
+8. PRO UI UPGRADE (Expandable Reason):
+
+- Default (compact view):
+  Show: "Deduction: -₹XXX (Late/Early Exit)"
+
+- Add "View Details" or dropdown arrow
+
+- On expand:
+  Show full reason sentence (from step 7)
+
+9. Manual Override:
+
+- Keep editable pay input field
+- If admin edits:
+   - Show badge: "Manual Override Applied"
+   - Allow optional override reason input
+   - Override replaces auto calculation
+
+10. Crew Payment Dashboard:
+
+Display:
+- Crew Name
+- Event Name
+- Base Pay
+- Deduction: ₹XXX (click to expand full reason)
+- Final Pay
+- Status Badge:
+   - Full Pay (green)
+   - Partial Pay (orange)
+   - No Pay (red)
+
+11. Color Logic:
+- No deduction → Green
+- Small deduction → Orange
+- Heavy deduction → Red
+
+Goal:
+Admin should instantly see payment, reason, and approve in 1 click with full transparency.

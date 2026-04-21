@@ -1,0 +1,20 @@
+{
+  "name": "workspace",
+  "version": "0.0.0",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node artifacts/api-server/dist/index.cjs",
+    "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "build:hostinger": "echo 'Backend bundle is pre-built and committed to git — no build step needed'",
+    "typecheck:libs": "tsc --build",
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+  },
+  "private": true,
+  "devDependencies": {
+    "typescript": "~5.9.2",
+    "prettier": "^3.8.1"
+  }
+}

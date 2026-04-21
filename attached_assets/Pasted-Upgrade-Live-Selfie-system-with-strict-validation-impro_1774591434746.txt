@@ -1,0 +1,123 @@
+Upgrade Live Selfie system with strict validation + improved UI (circle frame):
+
+-------------------------
+UI IMPROVEMENTS
+-------------------------
+
+1. Replace oval with a PERFECT CIRCLE overlay
+
+2. Circle Design:
+- Centered on screen
+- Large size (~70% of camera area)
+- Slightly bigger than face (not tight fit)
+
+3. Border Styles:
+- Default → light grey dashed border
+- Valid → solid GREEN border
+- Invalid → neutral or subtle red
+
+4. Background:
+- Darken outside area
+- Keep inside circle clear
+
+5. Instruction Text:
+- "Position your face inside the circle"
+
+6. Smooth animation for border state changes
+
+-------------------------
+CORE VALIDATION (CRITICAL FIX)
+-------------------------
+
+7. Continuous Face Detection:
+- Run detection on EVERY frame (real-time)
+- Do NOT store old "verified" state
+
+8. Reset Logic (IMPORTANT):
+- If face disappears:
+  - Remove green border
+  - Show: "No face detected"
+  - Disable capture button
+
+9. Face Position Check:
+- Face must be inside circle
+- Else show:
+  "Align your face inside the frame"
+
+10. Face Presence Check:
+- Detect eyes, nose, mouth (landmarks)
+- If not detected → block capture
+
+-------------------------
+LIVENESS CHECK
+-------------------------
+
+11. Require movement:
+- Ask user to nod / slight head movement
+
+12. Liveness valid ONLY when:
+- Face is visible AND
+- Movement detected in real-time
+
+13. If no movement:
+- Show: "Slowly move your head to confirm"
+
+-------------------------
+CAPTURE BUTTON RULES
+-------------------------
+
+14. Enable "Take Photo" ONLY if:
+✔ Face detected
+✔ Face inside circle
+✔ Face landmarks detected
+✔ Liveness confirmed (recent)
+
+15. Disable instantly if ANY condition fails
+
+16. DO NOT allow previous liveness state
+- Always re-check before capture
+
+-------------------------
+POST-CAPTURE VALIDATION
+-------------------------
+
+17. After clicking photo:
+- Re-check:
+  - Face present
+  - Not blurry
+  - Proper lighting
+
+18. If invalid:
+- Reject image
+- Ask user to retake
+
+-------------------------
+ANTI-CHEAT IMPROVEMENTS
+-------------------------
+
+19. Reject if:
+- No face (wall / object)
+- Multiple faces
+- Face too small / too far
+
+20. Show warning:
+"Fake or unclear selfies will lead to profile rejection"
+
+-------------------------
+MOBILE OPTIMIZATION
+-------------------------
+
+21. Ensure circle fits all screens
+22. Face should not get cropped
+23. Smooth camera performance (no lag)
+
+-------------------------
+GOAL
+-------------------------
+
+Allow capture ONLY when a real human face is:
+- Clearly visible
+- Inside frame
+- Moving (liveness confirmed)
+
+Reject everything else.

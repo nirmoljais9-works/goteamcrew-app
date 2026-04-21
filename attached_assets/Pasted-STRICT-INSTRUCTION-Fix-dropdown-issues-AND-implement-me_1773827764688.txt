@@ -1,0 +1,129 @@
+STRICT INSTRUCTION:
+Fix dropdown issues AND implement metro state-city logic.
+Do NOT change UI design, colors, spacing, or layout.
+
+----------------------------------------
+
+1. FIX DROPDOWN SMOOTHNESS
+
+- Replace current dropdown with smooth, responsive dropdown
+- Add animation: fade + slide down (150–200ms)
+- Ensure no lag while opening/closing
+- Mobile touch scroll must work properly
+
+----------------------------------------
+
+2. ADD SEARCH FUNCTIONALITY
+
+- Add search input inside BOTH dropdowns:
+
+State:
+- User can type to filter states instantly
+
+City:
+- User can type to filter cities
+
+- Show "No results found" if no match
+
+----------------------------------------
+
+3. STATE DROPDOWN (METRO ONLY)
+
+Replace existing state list with ONLY:
+
+Maharashtra
+Delhi
+Karnataka
+Tamil Nadu
+Telangana
+West Bengal
+Gujarat
+Rajasthan
+Uttar Pradesh
+Haryana
+Punjab
+Madhya Pradesh
+
+- Sort alphabetically
+- Make searchable
+- Required field
+
+----------------------------------------
+
+4. CITY DROPDOWN (DYNAMIC + COMPLETE FOR YOUR USE CASE)
+
+- Disable city dropdown until state is selected
+- Load cities based on selected state
+
+Use this dataset:
+
+Maharashtra → Mumbai, Pune, Nagpur, Other  
+Delhi → New Delhi, Other  
+Karnataka → Bangalore, Other  
+Tamil Nadu → Chennai, Coimbatore, Other  
+Telangana → Hyderabad, Other  
+West Bengal → Kolkata, Other  
+Gujarat → Ahmedabad, Surat, Other  
+Rajasthan → Jaipur, Other  
+Uttar Pradesh → Noida, Lucknow, Other  
+Haryana → Gurgaon, Other  
+Punjab → Chandigarh, Ludhiana, Other  
+Madhya Pradesh → Indore, Bhopal, Other  
+
+- Add search inside city dropdown
+- Reset city when state changes
+- Required field
+
+----------------------------------------
+
+5. ADD "OTHER CITY" INPUT
+
+- If user selects "Other" in City:
+  → Show new input field below
+
+Label: "Enter your city"
+Placeholder: "Type your city name"
+
+- Required ONLY if "Other" selected
+- Hide when not selected
+
+----------------------------------------
+
+6. ENABLE PROPER SLIDING / SCROLL
+
+- Dropdown must:
+  - Have max height
+  - Enable internal vertical scroll
+  - Support mobile flick/gesture scroll
+- Do NOT allow dropdown to overflow screen
+
+----------------------------------------
+
+7. UX BEHAVIOR FIXES
+
+- Highlight selected option
+- Close dropdown after selection
+- Show selected value in input
+- Smooth open/close transitions
+
+----------------------------------------
+
+8. VALIDATION RULES
+
+- State required
+- City required
+- If City = Other → custom city required
+
+----------------------------------------
+
+9. TECH IMPLEMENTATION
+
+- Do NOT use basic HTML select
+- Use custom searchable dropdown component
+- Optimize for performance and mobile use
+
+----------------------------------------
+
+FINAL RULE:
+Do NOT change anything else in UI.
+Only fix dropdown issues and apply above logic.

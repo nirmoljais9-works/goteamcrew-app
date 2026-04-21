@@ -1,0 +1,1160 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: Event Manpower Agency API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: crew
+    description: Crew member operations
+  - name: events
+    description: Event operations
+  - name: shifts
+    description: Shift operations
+  - name: payments
+    description: Payment operations
+  - name: admin
+    description: Admin operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user session
+      responses:
+        "200":
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Not authenticated
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Invalid credentials
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register as a new crew member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+
+  /crew/profile:
+    get:
+      operationId: getCrewProfile
+      tags: [crew]
+      summary: Get my crew profile
+      responses:
+        "200":
+          description: Crew profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewProfile"
+    put:
+      operationId: updateCrewProfile
+      tags: [crew]
+      summary: Update my crew profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCrewProfileRequest"
+      responses:
+        "200":
+          description: Updated crew profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrewProfile"
+
+  /crew/shifts:
+    get:
+      operationId: getMyShifts
+      tags: [crew]
+      summary: Get my claimed shifts
+      responses:
+        "200":
+          description: My shifts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ShiftClaim"
+
+  /crew/earnings:
+    get:
+      operationId: getMyEarnings
+      tags: [crew]
+      summary: Get my payment history and earnings
+      responses:
+        "200":
+          description: My earnings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EarningsSummary"
+
+  /events:
+    get:
+      operationId: getEvents
+      tags: [events]
+      summary: Get all events
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [upcoming, ongoing, completed, cancelled]
+      responses:
+        "200":
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Event"
+    post:
+      operationId: createEvent
+      tags: [events]
+      summary: Create a new event (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEventRequest"
+      responses:
+        "201":
+          description: Created event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+
+  /events/{id}:
+    get:
+      operationId: getEvent
+      tags: [events]
+      summary: Get event by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Event details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+    put:
+      operationId: updateEvent
+      tags: [events]
+      summary: Update event (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEventRequest"
+      responses:
+        "200":
+          description: Updated event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+    delete:
+      operationId: deleteEvent
+      tags: [events]
+      summary: Delete event (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Event deleted
+
+  /shifts:
+    get:
+      operationId: getShifts
+      tags: [shifts]
+      summary: Get available shifts
+      parameters:
+        - name: eventId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, claimed, approved, completed, cancelled]
+      responses:
+        "200":
+          description: List of shifts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Shift"
+    post:
+      operationId: createShift
+      tags: [shifts]
+      summary: Create a shift for an event (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateShiftRequest"
+      responses:
+        "201":
+          description: Created shift
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shift"
+
+  /shifts/{id}:
+    get:
+      operationId: getShift
+      tags: [shifts]
+      summary: Get shift by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Shift details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shift"
+    put:
+      operationId: updateShift
+      tags: [shifts]
+      summary: Update shift (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateShiftRequest"
+      responses:
+        "200":
+          description: Updated shift
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shift"
+    delete:
+      operationId: deleteShift
+      tags: [shifts]
+      summary: Delete shift (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Shift deleted
+
+  /shifts/{id}/claim:
+    post:
+      operationId: claimShift
+      tags: [shifts]
+      summary: Claim a shift as crew
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Shift claimed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShiftClaim"
+
+  /shifts/{id}/unclaim:
+    post:
+      operationId: unclaimShift
+      tags: [shifts]
+      summary: Unclaim a shift
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Shift unclaimed
+
+  /payments:
+    get:
+      operationId: getPayments
+      tags: [payments]
+      summary: Get all payments (admin) or my payments (crew)
+      responses:
+        "200":
+          description: List of payments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Payment"
+    post:
+      operationId: createPayment
+      tags: [payments]
+      summary: Record a payment (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaymentRequest"
+      responses:
+        "201":
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+
+  /payments/{id}:
+    put:
+      operationId: updatePayment
+      tags: [payments]
+      summary: Update payment status (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePaymentRequest"
+      responses:
+        "200":
+          description: Updated payment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+
+  /admin/crew:
+    get:
+      operationId: adminGetAllCrew
+      tags: [admin]
+      summary: Get all crew members (admin only)
+      responses:
+        "200":
+          description: All crew members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CrewMemberAdmin"
+
+  /admin/crew/{id}/approve:
+    post:
+      operationId: adminApproveCrew
+      tags: [admin]
+      summary: Approve a crew member registration (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Crew approved
+
+  /admin/crew/{id}/reject:
+    post:
+      operationId: adminRejectCrew
+      tags: [admin]
+      summary: Reject a crew member registration (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Crew rejected
+
+  /admin/shift-claims:
+    get:
+      operationId: adminGetShiftClaims
+      tags: [admin]
+      summary: Get all shift claims (admin only)
+      responses:
+        "200":
+          description: All shift claims
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ShiftClaim"
+
+  /admin/shift-claims/{id}/approve:
+    post:
+      operationId: adminApproveShiftClaim
+      tags: [admin]
+      summary: Approve a shift claim (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Shift claim approved
+
+  /admin/shift-claims/{id}/reject:
+    post:
+      operationId: adminRejectShiftClaim
+      tags: [admin]
+      summary: Reject a shift claim (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Shift claim rejected
+
+  /admin/stats:
+    get:
+      operationId: adminGetStats
+      tags: [admin]
+      summary: Get dashboard stats (admin only)
+      responses:
+        "200":
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [admin, crew]
+        status:
+          type: string
+          enum: [pending, approved, rejected, active]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - email
+        - name
+        - role
+        - status
+        - createdAt
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        city:
+          type: string
+        age:
+          type: integer
+        gender:
+          type: string
+          enum: [Male, Female]
+        category:
+          type: string
+          enum: [Promoter, Hostess, Model, Anchor, Event Crew]
+        experienceLevel:
+          type: string
+          enum: [Fresher, "1-2 years", "3+ years"]
+        languages:
+          type: string
+        height:
+          type: string
+        instagramUrl:
+          type: string
+        skills:
+          type: string
+        experience:
+          type: string
+        emergencyContact:
+          type: string
+      required:
+        - email
+        - password
+        - name
+        - phone
+        - city
+        - age
+        - gender
+        - category
+        - experienceLevel
+        - languages
+
+    CrewProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        city:
+          type: string
+        age:
+          type: integer
+        gender:
+          type: string
+        category:
+          type: string
+        experienceLevel:
+          type: string
+        languages:
+          type: string
+        height:
+          type: string
+        instagramUrl:
+          type: string
+        closeUpPhotoUrl:
+          type: string
+        fullLengthPhotoUrl:
+          type: string
+        skills:
+          type: string
+        experience:
+          type: string
+        emergencyContact:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, active]
+        totalEarnings:
+          type: number
+        completedShifts:
+          type: integer
+        bankAccount:
+          type: string
+        payHolderName:
+          type: string
+        payBankName:
+          type: string
+        payBranchName:
+          type: string
+        payAccountNumber:
+          type: string
+        payIfscCode:
+          type: string
+        payUpiId:
+          type: string
+        panNumber:
+          type: string
+        panCardUrl:
+          type: string
+        pendingPayHolderName:
+          type: string
+        pendingPayBankName:
+          type: string
+        pendingPayBranchName:
+          type: string
+        pendingPayAccountNumber:
+          type: string
+        pendingPayIfscCode:
+          type: string
+        pendingPayUpiId:
+          type: string
+        pendingPanNumber:
+          type: string
+        pendingPanCardUrl:
+          type: string
+        pendingName:
+          type: string
+        pendingCity:
+          type: string
+        pendingLanguages:
+          type: string
+        pendingExperience:
+          type: string
+        pendingCategory:
+          type: string
+        portfolioPhotos:
+          type: string
+        hasPendingChanges:
+          type: boolean
+        pendingChangesStatus:
+          type: string
+        adminMessage:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - name
+        - email
+        - phone
+        - status
+        - totalEarnings
+        - completedShifts
+        - createdAt
+
+    UpdateCrewProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        skills:
+          type: string
+        experience:
+          type: string
+        emergencyContact:
+          type: string
+        bankAccount:
+          type: string
+
+    CrewMemberAdmin:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        city:
+          type: string
+        age:
+          type: integer
+        gender:
+          type: string
+        category:
+          type: string
+        experienceLevel:
+          type: string
+        languages:
+          type: string
+        height:
+          type: string
+        instagramUrl:
+          type: string
+        aadhaarCardUrl:
+          type: string
+        collegeIdUrl:
+          type: string
+        closeUpPhotoUrl:
+          type: string
+        fullLengthPhotoUrl:
+          type: string
+        skills:
+          type: string
+        experience:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, active]
+        totalEarnings:
+          type: number
+        completedShifts:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - name
+        - email
+        - phone
+        - status
+        - totalEarnings
+        - completedShifts
+        - createdAt
+
+    Event:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [upcoming, ongoing, completed, cancelled]
+        clientName:
+          type: string
+        totalShifts:
+          type: integer
+        filledShifts:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - location
+        - startDate
+        - endDate
+        - status
+        - totalShifts
+        - filledShifts
+        - createdAt
+
+    CreateEventRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        clientName:
+          type: string
+        status:
+          type: string
+          enum: [upcoming, ongoing, completed, cancelled]
+      required:
+        - title
+        - location
+        - startDate
+        - endDate
+
+    Shift:
+      type: object
+      properties:
+        id:
+          type: integer
+        eventId:
+          type: integer
+        eventTitle:
+          type: string
+        eventLocation:
+          type: string
+        role:
+          type: string
+        description:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        hourlyRate:
+          type: number
+        totalPay:
+          type: number
+        spotsTotal:
+          type: integer
+        spotsFilled:
+          type: integer
+        status:
+          type: string
+          enum: [open, claimed, approved, completed, cancelled]
+        requirements:
+          type: string
+        claimedByMe:
+          type: boolean
+        myClaimStatus:
+          type: string
+          enum: [pending, approved, rejected]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - eventId
+        - role
+        - startTime
+        - endTime
+        - hourlyRate
+        - totalPay
+        - spotsTotal
+        - spotsFilled
+        - status
+        - claimedByMe
+        - createdAt
+
+    CreateShiftRequest:
+      type: object
+      properties:
+        eventId:
+          type: integer
+        role:
+          type: string
+        description:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        hourlyRate:
+          type: number
+        spotsTotal:
+          type: integer
+        requirements:
+          type: string
+      required:
+        - eventId
+        - role
+        - startTime
+        - endTime
+        - hourlyRate
+        - spotsTotal
+
+    ShiftClaim:
+      type: object
+      properties:
+        id:
+          type: integer
+        shiftId:
+          type: integer
+        crewId:
+          type: integer
+        crewName:
+          type: string
+        crewEmail:
+          type: string
+        crewPhone:
+          type: string
+        shiftRole:
+          type: string
+        eventTitle:
+          type: string
+        eventLocation:
+          type: string
+        shiftStartTime:
+          type: string
+          format: date-time
+        shiftEndTime:
+          type: string
+          format: date-time
+        totalPay:
+          type: number
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        claimedAt:
+          type: string
+          format: date-time
+        approvedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - shiftId
+        - crewId
+        - crewName
+        - crewEmail
+        - shiftRole
+        - eventTitle
+        - shiftStartTime
+        - shiftEndTime
+        - totalPay
+        - status
+        - claimedAt
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: integer
+        crewId:
+          type: integer
+        crewName:
+          type: string
+        shiftClaimId:
+          type: integer
+        shiftRole:
+          type: string
+        eventTitle:
+          type: string
+        amount:
+          type: number
+        status:
+          type: string
+          enum: [pending, processing, paid, failed]
+        paymentMethod:
+          type: string
+        reference:
+          type: string
+        notes:
+          type: string
+        paidAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - crewId
+        - crewName
+        - amount
+        - status
+        - createdAt
+
+    CreatePaymentRequest:
+      type: object
+      properties:
+        crewId:
+          type: integer
+        shiftClaimId:
+          type: integer
+        amount:
+          type: number
+        paymentMethod:
+          type: string
+        reference:
+          type: string
+        notes:
+          type: string
+      required:
+        - crewId
+        - amount
+
+    UpdatePaymentRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pending, processing, paid, failed]
+        reference:
+          type: string
+        notes:
+          type: string
+        paidAt:
+          type: string
+          format: date-time
+
+    EarningsSummary:
+      type: object
+      properties:
+        totalEarnings:
+          type: number
+        pendingPayments:
+          type: number
+        paidPayments:
+          type: number
+        completedShifts:
+          type: integer
+        upcomingShifts:
+          type: integer
+        payments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Payment"
+      required:
+        - totalEarnings
+        - pendingPayments
+        - paidPayments
+        - completedShifts
+        - upcomingShifts
+        - payments
+
+    AdminStats:
+      type: object
+      properties:
+        totalCrew:
+          type: integer
+        pendingApprovals:
+          type: integer
+        totalEvents:
+          type: integer
+        activeEvents:
+          type: integer
+        totalShifts:
+          type: integer
+        openShifts:
+          type: integer
+        pendingShiftClaims:
+          type: integer
+        totalPaymentsOwed:
+          type: number
+        totalPaid:
+          type: number
+      required:
+        - totalCrew
+        - pendingApprovals
+        - totalEvents
+        - activeEvents
+        - totalShifts
+        - openShifts
+        - pendingShiftClaims
+        - totalPaymentsOwed
+        - totalPaid

@@ -1,0 +1,120 @@
+TASK: Convert Intro Video into Compact Capsule Card with Smart Thumbnail Preview
+
+OBJECTIVE:  
+Replace large video player with a compact, premium capsule-style preview using an auto-generated thumbnail. Keep it clean, modern, and space-efficient.
+
+---
+
+1. REMOVE LARGE VIDEO PLAYER
+
+- Remove full-width video player after upload  
+- Do NOT show inline controls (seek, volume, fullscreen)
+
+---
+
+2. ADD COMPACT CAPSULE VIDEO CARD
+
+Layout (horizontal):
+
+[ Thumbnail ]   [ Title + Duration + Play ]
+
+---
+
+3. THUMBNAIL (IMPORTANT – SMART PREVIEW)
+
+- Extract thumbnail automatically from video:
+  → Capture frame at ~1–2 seconds (avoid blank frame)
+
+Fallback:
+- If thumbnail fails → show default video placeholder
+
+STYLE:
+- Size: 88x88 px  
+- Border radius: 12px  
+- Object-fit: cover  
+- Add subtle dark overlay (optional for contrast)
+
+---
+
+4. PLAY BUTTON OVERLAY
+
+- Center play icon on thumbnail  
+- Size: small (24–28px)  
+- Background: semi-transparent black circle  
+- Color: white  
+
+---
+
+5. RIGHT SIDE CONTENT
+
+Title:
+- “Intro Video”  
+- Font: medium weight  
+
+Meta:
+- Show duration (e.g. 0:32)  
+- Small, muted text (#6B7280)
+
+Optional:
+- “Tap to play” (very subtle)
+
+---
+
+6. CARD DESIGN
+
+- Background: #FFFFFF  
+- Border: 1px solid #E5E7EB  
+- Border radius: 14px  
+- Padding: 10–12px  
+- Very soft shadow (optional)
+
+---
+
+7. INTERACTION
+
+On click (anywhere on card):
+- Open video in modal / full player  
+
+DO NOT expand inline
+
+---
+
+8. ACTIONS (CLEAN)
+
+Below card:
+
+Left:
+→ Change Video  
+
+Right:
+→ Remove  
+
+Style:
+- Small, subtle text buttons  
+- No heavy icons  
+
+---
+
+9. HEIGHT CONTROL
+
+- Total card height: ~90–110px max  
+- Must feel like compact list item  
+
+---
+
+10. OPTIONAL PREMIUM TOUCH
+
+- Add tiny label above card:
+  “Intro Video”  
+
+- OR small check badge:
+  “✓ Added” (top-right of card)
+
+---
+
+EXPECTED RESULT:
+
+- Clean capsule-style preview  
+- Smart thumbnail (not blank screen)  
+- Compact and non-dominating  
+- Premium, modern UI (like Google Drive / Notion / WhatsApp media)

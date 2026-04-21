@@ -1,0 +1,140 @@
+Enhance the Crew Management system by adding a "Remove" action and "Re-activate" option.
+
+Do NOT break existing functionality. Extend current system safely.
+
+---
+
+1. ADD "REMOVE" BUTTON (UI)
+
+---
+
+In the Actions column:
+
+Final order:
+View | Reject | Blacklist | Remove
+
+* Add "Remove" button after Blacklist
+* Style:
+
+  * Subtle red/danger tone
+  * Optional trash icon
+  * Same spacing & alignment as other actions
+
+---
+
+2. REMOVE CONFIRMATION
+
+---
+
+On clicking "Remove":
+
+Show popup:
+"Are you sure you want to remove this crew member?
+They will no longer be able to log in."
+
+Buttons:
+
+* Confirm Remove
+* Cancel
+
+---
+
+3. BACKEND LOGIC (SAFE APPROACH)
+
+---
+
+Do NOT delete data.
+
+* Add new status: "Removed"
+* When removed:
+
+  * status = "Removed"
+  * Keep all historical data (events, payments, attendance)
+
+---
+
+4. LOGIN RESTRICTION
+
+---
+
+If removed crew tries to log in:
+
+Block access and show message:
+
+"Your account has been removed. Please contact admin for assistance."
+
+---
+
+5. FILTER UPDATE
+
+---
+
+Add new tab in filters:
+
+* Removed (0)
+
+Now filters:
+All | Pending | Approved | Rejected | Blacklisted | Removed
+
+---
+
+6. PAYMENT SAFETY CHECK
+
+---
+
+Before removing:
+
+If payment is pending:
+Show warning:
+
+"This crew member has pending payments. Please clear payments before removing."
+
+Option:
+
+* Either block removal
+  OR
+* Allow override with confirmation
+
+---
+
+7. RE-ACTIVATE FEATURE (PRO)
+
+---
+
+Inside "Removed" tab:
+
+* Replace actions with:
+  View | Re-activate
+
+Re-activate button:
+
+* Changes status from "Removed" → "Approved"
+* Crew can log in again
+
+Confirmation popup:
+"Re-activate this crew member?"
+
+---
+
+8. UI CONSISTENCY
+
+---
+
+* Match style with existing buttons (Reject, Blacklist)
+* Maintain spacing, fonts, and hover effects
+* Keep clean and minimal design
+
+---
+
+## FINAL RESULT
+
+Admin flow:
+Approve → Work → Blacklist → Pay → Remove → (Optional Re-activate)
+
+Removed users:
+
+* Cannot log in
+* Not deleted
+* Can be restored anytime
+
+System remains safe, clean, and scalable.

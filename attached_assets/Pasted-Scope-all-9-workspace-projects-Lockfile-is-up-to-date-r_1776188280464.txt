@@ -1,0 +1,36 @@
+Scope: all 9 workspace projects
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +494
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 494, reused 494, downloaded 0, added 395
+Progress: resolved 494, reused 494, downloaded 0, added 494, done
+
+devDependencies:
++ prettier 3.8.1
++ typescript 5.9.3
+
+. preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+. preinstall: Done
+╭ Warning ─────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│   Ignored build scripts: sharp@0.34.5.                                       │
+│   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+│   to run scripts.                                                            │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+Done in 2.4s using pnpm v10.33.0
+
+> workspace@0.0.0 build:hostinger /home/u793496221/domains/goteamcrew.com/public_html/.builds/source/repository
+> (cd artifacts/manpower-agency && node_modules/.bin/vite build) && (cd artifacts/api-server && node_modules/.bin/tsx build.ts)
+
+vite v7.3.1 building client environment for production...
+transforming...
+src/components/ui/tooltip.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/select.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/label.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/sheet.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+src/components/ui/dropdown-menu.tsx (2:0): Error when using sourcemap for reporting an error: Can't resolve original location of error.
+✓ 2587 modules transformed.
+[plugin vite:reporter] 
+(!) 

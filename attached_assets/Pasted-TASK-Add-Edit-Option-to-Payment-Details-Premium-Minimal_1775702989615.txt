@@ -1,0 +1,102 @@
+TASK: Add Edit Option to Payment Details (Premium Minimal UI - No Admin Approval)
+
+OBJECTIVE:  
+Add a subtle "Edit" option with a pencil icon to the Payment Details section. Keep UI clean, minimal, and premium. Changes should update instantly (no admin approval flow).
+
+---
+
+1. EDIT BUTTON (TOP RIGHT)
+
+- Place an "Edit" button with pencil icon (✏️) at the top-right of the "Payment Details" header  
+- Align it horizontally with the heading  
+
+STYLE:
+- Text: Edit  
+- Icon: ✏️ (before text)  
+- Font size: 12–14px  
+- Font weight: medium  
+- Color: muted primary (light blue or grey)  
+- No background, no border  
+- Spacing: 6px between icon and text  
+
+INTERACTION:
+- On hover: slight underline or opacity change  
+- On click/tap: subtle feedback  
+
+---
+
+2. KEEP APPROVED CARD CLEAN
+
+- Do NOT add edit button inside the green "Approved Payment Details" box  
+- Keep that section visually untouched  
+
+---
+
+3. EDIT FLOW
+
+- On clicking "Edit" → open a full-screen modal (mobile) or centered modal (desktop)
+
+---
+
+4. EDITABLE FIELDS (PRE-FILLED)
+
+- Account Holder Name  
+- Bank Name  
+- Branch  
+- IFSC Code  
+- Account Number  
+- UPI ID  
+
+---
+
+5. EDIT SCREEN UI
+
+- Clean vertical form layout  
+- Labels above inputs  
+- Same spacing as onboarding UI  
+- Rounded input fields  
+
+BOTTOM ACTIONS (sticky):
+- Left: Cancel (text button)  
+- Right: Save Changes (primary button)  
+
+---
+
+6. SAVE LOGIC (UPDATED)
+
+- On clicking "Save Changes":
+  - Instantly update payment details  
+  - Show toast: "Payment details updated successfully"  
+  - Keep status as ✅ Approved (no change)  
+
+---
+
+7. MICRO UX IMPROVEMENTS
+
+- Mask account number:
+  Example: XXXXXX1622  
+
+- Add copy icon for:
+  - Account Number  
+  - UPI ID  
+
+- Add subtle divider between rows  
+
+---
+
+8. IMPORTANT RULES
+
+- No admin approval flow  
+- No status change (always Approved)  
+- No heavy buttons  
+- No edit inside green card  
+- Maintain minimal + premium fintech-style UI  
+
+---
+
+EXPECTED RESULT:
+
+- Clean UI like Razorpay / Stripe  
+- Instant edit experience  
+- No friction / no review delay  
+- Premium and lightweight design

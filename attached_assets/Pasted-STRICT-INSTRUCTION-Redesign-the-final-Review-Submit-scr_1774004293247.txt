@@ -1,0 +1,136 @@
+STRICT INSTRUCTION:
+Redesign the final "Review & Submit" screen to look like a premium modern onboarding UI (similar to Urban Company / Zomato).
+
+Do NOT change functionality. Only improve UI/UX.
+
+----------------------------------------
+
+1. HEADER IMPROVEMENT
+
+- Keep "Crew Registration Form"
+- Add subtext:
+"Final step – review your details"
+
+- Make header clean and slightly smaller
+- Keep progress bar minimal
+
+----------------------------------------
+
+2. CONVERT CARDS INTO GROUPED SECTIONS
+
+Instead of multiple separate boxes, group into 3 sections:
+
+----------------------------------------
+
+SECTION 1: PERSONAL DETAILS
+
+Display as compact block:
+
+Name (bold)
+Phone (small text)
+
+Right side:
+Edit (small, subtle button)
+
+----------------------------------------
+
+SECTION 2: LOCATION
+
+Format:
+📍 Faridabad, Haryana
+
+Small edit button
+
+----------------------------------------
+
+SECTION 3: PROFESSIONAL INFO
+
+Format:
+🎯 Model • 2+ years experience
+
+----------------------------------------
+
+3. VERIFICATION BLOCK (HIGHLIGHT)
+
+Make this the most important visual element:
+
+- Light green background
+- Rounded corners
+- Bigger padding
+
+Content:
+
+✅ Identity Verified  
+ID & selfie successfully verified
+
+----------------------------------------
+
+4. READY STATE (CONVERSION FOCUS)
+
+Replace current box with:
+
+🚀 You're ready to submit  
+Your profile will be reviewed within 24 hours.
+
+- Keep this minimal
+- No border box OR very light background
+
+----------------------------------------
+
+5. REMOVE CLUTTER
+
+- Remove "Your data is secure..." line completely
+- Remove unnecessary borders
+- Reduce too many boxes
+
+----------------------------------------
+
+6. CHECKBOX SECTION
+
+Make it clean:
+
+[ ] I agree to Terms & Conditions
+
+- Keep "Terms & Conditions" clickable
+- Smaller font
+- Place just above button
+
+----------------------------------------
+
+7. BUTTON IMPROVEMENT
+
+Primary button:
+
+"Submit Application"
+
+- Full width (mobile)
+- Strong gradient (purple)
+- Slight shadow
+
+Secondary button:
+
+Back (outline style)
+
+----------------------------------------
+
+8. SPACING & VISUAL FLOW
+
+- Reduce vertical spacing slightly
+- Keep sections clearly separated
+- Ensure everything fits in one screen scroll (important)
+
+----------------------------------------
+
+9. FINAL EXPERIENCE
+
+The screen should feel:
+- Clean
+- Fast
+- Premium
+- Trustworthy
+- No clutter
+
+----------------------------------------
+
+FINAL RULE:
+User should understand everything within 3 seconds and feel confident to click submit.

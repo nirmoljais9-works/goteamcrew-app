@@ -1,0 +1,128 @@
+STRICT INSTRUCTION: 
+Only implement the exact changes listed below. 
+Do NOT redesign, do NOT change colors, do NOT change layout, do NOT modify any other fields or spacing.
+
+----------------------------------------
+
+1. UPDATE FIELD: WhatsApp Number
+
+- Change label to: "Contact Details"
+- Placeholder: "Enter your WhatsApp number"
+- Keep input type: tel
+- Add helper text directly below input:
+  "We will send a verification code on this number"
+- Validation:
+  - Must be exactly 10 digits
+- Keep required = true
+
+----------------------------------------
+
+2. ADD NEW FIELD: State (ABOVE City)
+
+- Insert a dropdown field above "City"
+- Label: "State"
+- Required = true
+
+- Options (ALL India states & UTs):
+Andhra Pradesh
+Arunachal Pradesh
+Assam
+Bihar
+Chhattisgarh
+Goa
+Gujarat
+Haryana
+Himachal Pradesh
+Jharkhand
+Karnataka
+Kerala
+Madhya Pradesh
+Maharashtra
+Manipur
+Meghalaya
+Mizoram
+Nagaland
+Odisha
+Punjab
+Rajasthan
+Sikkim
+Tamil Nadu
+Telangana
+Tripura
+Uttar Pradesh
+Uttarakhand
+West Bengal
+Andaman and Nicobar Islands
+Chandigarh
+Dadra and Nagar Haveli and Daman and Diu
+Delhi
+Jammu and Kashmir
+Ladakh
+Lakshadweep
+Puducherry
+
+----------------------------------------
+
+3. UPDATE FIELD: City
+
+- Convert City input into dropdown
+- Placeholder: "Select city"
+- Required = true
+- Disabled by default until State is selected
+
+- Logic:
+  Show city options ONLY after state is selected
+
+- Add sample mapping (minimum required):
+  Maharashtra → Mumbai, Pune, Nagpur, Thane
+  Delhi → New Delhi
+  Karnataka → Bangalore, Mysore
+  Tamil Nadu → Chennai, Coimbatore
+  Uttar Pradesh → Lucknow, Noida, Kanpur
+
+(Do not leave city empty; must depend on state)
+
+----------------------------------------
+
+4. REPLACE FIELD: Age → Date of Birth
+
+- Remove Age field completely
+- Add new field in same position:
+
+Label: "Date of Birth"
+Type: date picker
+Required = true
+
+- Validation:
+  - Disable future dates
+  - Accept valid past dates only
+
+----------------------------------------
+
+5. UI RULES (MANDATORY)
+
+- Keep EXACT same UI design
+- Same font, spacing, colors, border radius
+- Dropdown and date picker must visually match existing inputs
+- Helper text = small + light grey
+
+----------------------------------------
+
+6. DATA UPDATE (IMPORTANT)
+
+Update form data keys:
+
+REMOVE:
+- age
+
+ADD:
+- contactNumber
+- state
+- city
+- dob
+
+----------------------------------------
+
+FINAL RULE:
+Do not modify any other part of the form or UI.
+Only perform the above changes.

@@ -1,0 +1,117 @@
+STRICT INSTRUCTION:
+Add Terms & Conditions page and mandatory agreement checkbox before submission.
+Do NOT change existing layout.
+
+----------------------------------------
+
+1. CREATE TERMS & CONDITIONS PAGE
+
+Title:
+"Terms & Conditions"
+
+----------------------------------------
+
+Content:
+
+Intro:
+"By registering on Goteamcrew, you agree to the following terms."
+
+----------------------------------------
+
+A) INFORMATION ACCURACY
+
+- Users must provide correct and genuine information
+- Fake or misleading details may lead to rejection
+
+----------------------------------------
+
+B) VERIFICATION
+
+- All users must complete ID and selfie verification
+- Goteamcrew reserves the right to approve or reject any profile
+
+----------------------------------------
+
+C) DATA USAGE
+
+- Your information will be used only for:
+  - Profile verification
+  - Job opportunities
+- We do NOT sell your data
+
+----------------------------------------
+
+D) PROFILE SHARING
+
+- Your profile may be shared with clients for event work
+- Only relevant details will be shared
+
+----------------------------------------
+
+E) ACCOUNT RESPONSIBILITY
+
+- Users are responsible for maintaining correct contact details
+- Updates will be sent via WhatsApp
+
+----------------------------------------
+
+F) PLATFORM RIGHTS
+
+- Goteamcrew can suspend or remove accounts if needed
+- No guarantee of job assignments
+
+----------------------------------------
+
+Final Line:
+"If you do not agree with these terms, please do not register."
+
+----------------------------------------
+
+2. ADD CHECKBOX ON FINAL STEP
+
+Label:
+
+"I confirm that all details are correct and I agree to the Terms & Conditions"
+
+----------------------------------------
+
+3. MAKE TERMS CLICKABLE
+
+- "Terms & Conditions" should be clickable
+- Open in:
+  → Modal popup (preferred)
+  OR
+  → New page
+
+----------------------------------------
+
+4. CHECKBOX BEHAVIOR
+
+- Default: unchecked
+- Mandatory to check
+
+----------------------------------------
+
+5. SUBMIT BUTTON LOGIC
+
+- Disable "Submit & Get Approved" button until checkbox is checked
+
+----------------------------------------
+
+6. VALIDATION
+
+- If user tries to submit without checking:
+  → Show error:
+    "Please accept Terms & Conditions before submitting"
+
+----------------------------------------
+
+7. UI STYLE
+
+- Keep checkbox simple
+- Match existing theme
+
+----------------------------------------
+
+FINAL RULE:
+User must accept Terms & Conditions before submission, and terms page must be accessible via clickable link.

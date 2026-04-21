@@ -1,0 +1,105 @@
+STRICT INSTRUCTION:
+Improve Live Selfie camera performance and UX.
+Make camera open instantly with smooth animation.
+Do NOT change core functionality.
+
+----------------------------------------
+
+1. PRELOAD CAMERA (ZERO DELAY)
+
+- On page load:
+  → Call getUserMedia()
+  → Start camera in background
+
+- Keep video hidden:
+  visibility: hidden OR off-screen
+
+- Store stream:
+  let cameraStream;
+
+----------------------------------------
+
+2. REUSE CAMERA
+
+- On selfie open:
+  → DO NOT call getUserMedia again
+  → Attach existing stream to visible video
+
+----------------------------------------
+
+3. PRELOAD FACE DETECTION
+
+- Initialize MediaPipe on page load
+- Use lightweight config:
+  model: "short"
+  minDetectionConfidence: 0.5
+
+- Reuse same instance
+
+----------------------------------------
+
+4. REMOVE LOADING DELAY
+
+- Show "Preparing camera..." for max 300–500ms
+- Then instantly show camera
+
+----------------------------------------
+
+5. FADE IN ANIMATION
+
+- Camera container:
+  opacity: 0 → 1
+  duration: 0.3s ease
+
+----------------------------------------
+
+6. SCALE EFFECT
+
+- Add smooth zoom:
+  transform: scale(0.95 → 1)
+
+----------------------------------------
+
+7. OVERLAY ANIMATION
+
+- Circle + UI fade in smoothly
+- No sudden appearance
+
+----------------------------------------
+
+8. BUTTON ANIMATION
+
+- Capture button:
+  → Fade in
+  → Move up slightly
+
+transform: translateY(10px → 0)
+
+----------------------------------------
+
+9. BACKGROUND DIM
+
+- Add dark overlay behind camera
+  opacity: 0 → 0.4
+
+----------------------------------------
+
+10. CLOSE ANIMATION
+
+- On cancel:
+  → Fade out
+  → Slight scale down
+
+----------------------------------------
+
+11. PERFORMANCE RULES
+
+- Do NOT reinitialize camera repeatedly
+- Do NOT reload face detection
+- Load camera + detection in parallel
+
+----------------------------------------
+
+FINAL RULE:
+Camera must feel instant (0–1 sec).
+UI must feel smooth and premium like a mobile app.

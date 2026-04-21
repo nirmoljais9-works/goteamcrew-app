@@ -1,0 +1,138 @@
+Upgrade Crew Profile section to support editable details, multiple roles, and portfolio images.
+
+IMPORTANT:
+- Do NOT redesign entire page
+- Enhance existing sections cleanly
+
+----------------------------------
+
+1. MULTIPLE ROLE SELECTION
+
+- Replace single "Role / Category" with multi-select
+
+Options:
+- Model
+- Hostess
+- Promoter
+- Anchor
+- Crew
+
+Behavior:
+- Allow selecting multiple roles
+- Display as tags:
+   "Model • Hostess • Promoter"
+
+----------------------------------
+
+2. MAKE PROFILE EDITABLE
+
+Add button:
+[Edit Profile]
+
+On click:
+- Enable editing for:
+   - Name
+   - City
+   - Languages
+   - Experience
+   - Roles (multi-select)
+
+On save:
+- Send for admin approval (same as current system)
+
+----------------------------------
+
+3. BANK DETAILS VISIBILITY + EDIT
+
+Current issue:
+- Bank details not clearly visible
+
+Fix:
+
+Show clearly:
+
+=== PAYMENT DETAILS ===
+
+- Account Holder Name
+- Bank Name
+- Branch
+- Account Number (masked: XXXX1234)
+- UPI ID
+
+Add button:
+[Edit Payment Details]
+
+On edit:
+- Allow update
+- Send for admin approval
+
+----------------------------------
+
+4. PAN CARD SECTION IMPROVEMENT
+
+Show:
+
+- PAN Number (masked: ABCDE****F)
+- PAN Image preview (thumbnail)
+
+Add:
+[View Full Image]
+[Update PAN]
+
+----------------------------------
+
+5. PORTFOLIO / EVENT PHOTOS (VERY IMPORTANT)
+
+Add new section:
+
+=== MY WORK / PORTFOLIO ===
+
+- Upload multiple images (max 5–10)
+
+UI:
+
+[ + Upload Photos ]
+
+Show as grid:
+- Small thumbnails
+- Tap to enlarge
+
+Allow:
+- Delete image
+- Replace image
+
+----------------------------------
+
+6. PROFILE STRENGTH (BONUS - VERY POWERFUL)
+
+Add small progress bar:
+
+"Profile Strength: 70%"
+
+Based on:
+- Profile filled
+- Bank details added
+- PAN uploaded
+- Photos uploaded
+
+----------------------------------
+
+7. APPROVAL SYSTEM
+
+For any edits:
+- Mark as "Pending Approval"
+- Show badge:
+   "Changes under review"
+
+----------------------------------
+
+8. GOAL
+
+Crew should:
+- Upgrade profile anytime
+- Showcase their work
+- Increase chances of selection
+
+Admin should:
+- Trust data
+- Approve updates easily

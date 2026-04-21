@@ -1,0 +1,93 @@
+Implement AUTO PAY CALCULATION with detailed deduction reasons specifically inside the "Attendance View Details" section (modal/page).
+
+1. Scope (IMPORTANT):
+- Apply all changes ONLY inside "Attendance View Details" section
+- Do NOT affect other pages except Crew Payment Dashboard (for summary display)
+
+2. Base Setup:
+- Base Pay (example: ₹1500)
+- Shift Duration (example: 8 hours = 480 minutes)
+
+3. Per Minute Rate:
+per_minute_rate = base_pay / total_shift_minutes
+
+4. Time Calculations:
+- late_minutes = max(0, check_in_time - shift_start_time)
+- early_exit_minutes = max(0, shift_end_time - check_out_time)
+- total_deduction_minutes = late_minutes + early_exit_minutes
+
+5. Deduction Amount:
+- late_deduction = late_minutes * per_minute_rate
+- early_exit_deduction = early_exit_minutes * per_minute_rate
+- total_deduction = late_deduction + early_exit_deduction
+
+6. Final Pay:
+final_pay = base_pay - total_deduction
+- Round final_pay to nearest rupee
+
+7. UI Changes (INSIDE Attendance View Details → Bottom Section):
+
+Replace current "Pay" input area with:
+
+=== PAYMENT SUMMARY ===
+
+- Base Pay: ₹XXXX
+- Late: Xh Ym → -₹XXX
+- Early Exit: Xh Ym → -₹XXX
+- Total Deduction: -₹XXX
+- Final Pay (Auto): ₹XXXX
+
+8. Reason Generation (AUTO):
+
+Generate clear sentence:
+
+If only late:
+"₹XXX deducted for Xh Ym late."
+
+If only early exit:
+"₹XXX deducted for Xh Ym early exit."
+
+If both:
+"₹XXX deducted for Xh Ym late + ₹XXX deducted for Xh Ym early exit."
+
+Always append:
+"Final Pay: ₹XXXX"
+
+9. PRO UI UPGRADE (Expandable Reason):
+
+- Default (compact view in Attendance View Details):
+  Show: "Deduction: -₹XXX (Late/Early Exit)"
+
+- Add "View Details" toggle or dropdown
+
+- On expand:
+  Show full reason sentence (from step 8)
+
+10. Manual Override (IMPORTANT):
+
+- Keep editable pay input field below summary
+- If admin edits:
+   - Show badge: "Manual Override Applied"
+   - Allow optional override reason input
+   - Override replaces auto calculation
+
+11. Crew Payment Dashboard (sync data):
+
+Display:
+- Crew Name
+- Event Name
+- Base Pay
+- Deduction: ₹XXX (click to expand full reason)
+- Final Pay
+- Status Badge:
+   - Full Pay (green)
+   - Partial Pay (orange)
+   - No Pay (red)
+
+12. Color Logic:
+- No deduction → Green
+- Small deduction → Orange
+- Heavy deduction → Red
+
+Goal:
+Inside Attendance View Details, admin should instantly understand payment, reason, and approve in 1 click without confusion.

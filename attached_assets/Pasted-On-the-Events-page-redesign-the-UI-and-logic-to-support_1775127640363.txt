@@ -1,0 +1,111 @@
+On the Events page, redesign the UI and logic to support event categorization with tabs and automatic status detection.
+
+-------------------------
+1. ADD TABS (TOP SECTION)
+-------------------------
+Add 4 tabs below the "Events" heading:
+
+- Upcoming (default selected)
+- Ongoing
+- Completed
+- All
+
+Each tab should show count:
+Example:
+Upcoming (5), Ongoing (2), Completed (12), All (19)
+
+Counts must dynamically update based on events data.
+
+-------------------------
+2. EVENT STATUS LOGIC (AUTO - NO MANUAL CONTROL)
+-------------------------
+Remove manual status control completely.
+
+Determine status automatically using event date & time (IST):
+
+- UPCOMING:
+  If current datetime < event start datetime
+
+- ONGOING:
+  If current datetime is between event start and end datetime
+
+- COMPLETED:
+  If current datetime > event end datetime
+
+Make sure timezone is IST.
+
+-------------------------
+3. DEFAULT VIEW
+-------------------------
+- When page loads → show ONLY "Upcoming" events
+- "Upcoming" tab should be active by default
+
+-------------------------
+4. FILTERING (INSTANT - NO RELOAD)
+-------------------------
+- Clicking tabs filters events instantly using frontend state
+
+Tab behavior:
+- Upcoming → show only upcoming events
+- Ongoing → show only ongoing events
+- Completed → show only completed events
+- All → show all events
+
+-------------------------
+5. UI DESIGN (VERY CLEAN & SIMPLE)
+-------------------------
+- Tabs should be horizontal pill-style buttons
+- Active tab → purple background (match current theme)
+- Inactive tabs → light grey
+- Add smooth transition on click
+
+Example layout:
+[ Upcoming (5) ] [ Ongoing (2) ] [ Completed (12) ] [ All (19) ]
+
+-------------------------
+6. STATUS BADGES (AUTO DISPLAY)
+-------------------------
+Show status badge in each event row:
+
+- Upcoming → Blue badge
+- Ongoing → Green badge
+- Completed → Grey badge
+
+Text should match exactly:
+"Upcoming", "Ongoing", "Completed"
+
+-------------------------
+7. SORTING LOGIC
+-------------------------
+Apply sorting inside each tab:
+
+- Upcoming → nearest upcoming date first
+- Ongoing → currently active first
+- Completed → most recently completed first
+- All → sort by latest event date
+
+-------------------------
+8. BACKEND / DATA HANDLING
+-------------------------
+- Do NOT store status in database
+- Always compute status dynamically from date & time
+- Ensure consistency across reloads
+
+-------------------------
+9. PERFORMANCE & UX
+-------------------------
+- No page reload on tab switch
+- Use efficient filtering (map/filter)
+- Keep UI extremely simple (5th class user friendly)
+
+-------------------------
+10. OPTIONAL (BUT IMPLEMENT IF EASY)
+-------------------------
+- If no events in a tab → show empty state message:
+  Example: "No upcoming events"
+
+-------------------------
+
+Ensure everything works cleanly with current design system and spacing.
+Do not overcomplicate UI.
+Keep it minimal, fast, and easy to understand.

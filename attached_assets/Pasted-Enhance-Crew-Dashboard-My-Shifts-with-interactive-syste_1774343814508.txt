@@ -1,0 +1,119 @@
+Enhance "Crew Dashboard → My Shifts" with interactive system (premium UX + operations)
+
+Goal:
+- Make "My Shifts" section fully interactive
+- Improve crew experience and professionalism
+- Add operational features (check-in, reminders, instructions)
+
+----------------------------------
+1. LOCATION (IMPORTANT)
+
+- Apply all changes inside:
+  Crew Dashboard → Dropdown Menu → "My Shifts"
+
+- This section shows:
+  Confirmed / Approved shifts
+
+----------------------------------
+2. MAKE SHIFT CARD CLICKABLE
+
+- Entire shift card should be clickable
+- Add subtle UI feedback:
+  - Slight shadow on tap
+  - Smooth transition
+
+- Add small indicator:
+  → Arrow icon OR "Tap to view details"
+
+----------------------------------
+3. OPEN DETAILED SHIFT VIEW
+
+On click:
+→ Navigate to detailed shift page (preferred)
+
+----------------------------------
+4. SHIFT DETAILS PAGE (FULL INFO)
+
+Display:
+
+- Event Name
+- Role
+- Venue + Map link
+- Dates
+- Timings
+- Payment (total + per day)
+- Dress Code (with image)
+- Food info (minimal style)
+- Notes / Instructions
+
+----------------------------------
+5. ADD ACTION BUTTONS
+
+- 📞 Call Coordinator
+- 📍 Open in Google Maps
+- 📤 Share Shift
+
+----------------------------------
+6. STATUS SECTION
+
+Show clearly:
+
+- ✅ Approved
+- 📅 Approved Date
+- ⏳ Status: Upcoming / Ongoing / Completed
+
+----------------------------------
+7. CHECK-IN SYSTEM
+
+Add "Mark Attendance" button:
+
+- Visible only on shift date
+- On click:
+  → Mark attendance (store timestamp)
+
+Future-ready:
+- Selfie upload option
+- Location verification
+
+----------------------------------
+8. AUTO WHATSAPP REMINDER
+
+Before shift:
+
+- Send automatic messages:
+  - 24 hours before
+  - 2 hours before
+
+Message:
+
+"Reminder: You have a shift tomorrow
+Event: {eventName}
+Location: {venue}
+Time: {time}
+
+Be on time 👍"
+
+----------------------------------
+9. LIVE SHIFT INSTRUCTIONS PANEL
+
+Inside shift details:
+
+Section: "Live Instructions"
+
+Admin can update in real-time
+
+Crew sees updates instantly
+
+----------------------------------
+10. UI & EXPERIENCE
+
+- Clean, minimal, premium design
+- Fast loading
+- Smooth navigation
+- Proper back button support
+
+----------------------------------
+Goal:
+- Make "My Shifts" useful and interactive
+- Reduce confusion on event day
+- Improve crew reliability and experience

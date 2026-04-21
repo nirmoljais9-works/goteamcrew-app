@@ -1,0 +1,120 @@
+Create separate Attendance Management system in Admin Dashboard
+
+Goal:
+- Separate attendance from shift applications
+- Track check-in and check-out properly
+- Build clean and professional operations panel
+
+----------------------------------
+1. CREATE NEW MENU
+
+In Admin Sidebar:
+
+Add:
+"Attendance"
+
+----------------------------------
+2. ATTENDANCE PAGE STRUCTURE
+
+Show list of all approved crew for selected event
+
+For each crew show:
+
+- Profile Image
+- Name
+- Role
+- Event Name
+
+----------------------------------
+3. ATTENDANCE COLUMNS
+
+Display clearly:
+
+1. Check-In
+   - Time
+   - Status:
+     ✅ On Time
+     ⚠️ Late
+
+2. Check-Out
+   - Time
+   - Status:
+     ⏳ Not Checked Out
+     ✅ Completed
+
+3. Total Hours (optional)
+
+----------------------------------
+4. CHECK-IN DATA
+
+Show:
+
+- Check-in time
+- Late / On-time status
+- Location (map link)
+- Selfie (if implemented)
+
+----------------------------------
+5. ADD CHECK-OUT SYSTEM
+
+Add button (crew side):
+"Check Out"
+
+Store:
+
+- checkOutTime
+- status: completed
+
+----------------------------------
+6. ADMIN ACTIONS
+
+For each crew:
+
+- Undo Check-in
+- Undo Check-out
+- Mark Absent
+- Mark Present manually
+
+----------------------------------
+7. FILTERS (IMPORTANT)
+
+Top filters:
+
+- Event
+- Date
+- Status:
+  - All
+  - Checked In
+  - Not Checked In
+  - Late
+
+----------------------------------
+8. SUMMARY (TOP SECTION)
+
+Show:
+
+- Total Crew: 20
+- Checked In: 15
+- Late: 3
+- Absent: 2
+
+----------------------------------
+9. UI DESIGN
+
+- Table or clean card layout
+- Color coding:
+  Green → On time
+  Orange → Late
+  Red → Absent
+
+----------------------------------
+10. REMOVE FROM SHIFT APPLICATIONS
+
+- Remove check-in display from "Shift Applications"
+- Keep that page only for approvals
+
+----------------------------------
+Goal:
+- Clean separation of approval vs attendance
+- Easy tracking for event day
+- Professional dashboard for clients
