@@ -103,6 +103,45 @@ function computeBlurVariance(data: Uint8ClampedArray, w: number, h: number): num
   return sumSq / n - mean * mean;
 }
 
+/**
+ * Compress + resize an image File before uploading.
+ * Returns the original file untouched for PDFs or if the canvas API fails.
+ * maxWidth / maxHeight are the maximum pixel dimensions (aspect ratio preserved).
+ * quality is the JPEG quality (0–1).
+ */
+async function compressImageFile(
+  file: File,
+  maxWidth: number,
+  maxHeight: number,
+  quality: number = 0.82
+): Promise<File> {
+  if (!file.type.startsWith("image/")) return file; // PDFs pass through
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxWidth / img.width, maxHeight / img.height);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => {
+          if (blob) resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }));
+          else resolve(file);
+        },
+        "image/jpeg",
+        quality
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
 interface PostCaptureResult {
   found: boolean; centered: boolean; largeEnough: boolean;
   multiple: boolean; apiAvailable: boolean;
@@ -752,10 +791,14 @@ export default function Register() {
     const w = video.videoWidth, h = video.videoHeight;
     if (!w || !h) return;
 
-    // ① Snapshot mirrored frame
-    canvas.width = w; canvas.height = h;
+    // ① Snapshot mirrored frame — cap at 800px wide to keep file size small
+    const MAX_SELFIE_W = 800;
+    const scale = w > MAX_SELFIE_W ? MAX_SELFIE_W / w : 1;
+    canvas.width = Math.round(w * scale);
+    canvas.height = Math.round(h * scale);
     const ctx = canvas.getContext("2d")!;
-    ctx.translate(w, 0); ctx.scale(-1, 1); ctx.drawImage(video, 0, 0);
+    ctx.translate(canvas.width, 0); ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
 
     // ② Stop all live processes, show validating overlay
@@ -2535,9 +2578,12 @@ export default function Register() {
                           type="file"
                           accept="image/*,.pdf"
                           disabled={!formData.idType}
-                          onChange={e => {
+                          onChange={async e => {
                             const picked = e.target.files?.[0];
-                            if (picked) setFiles(prev => ({ ...prev, idFile: picked }));
+                            if (picked) {
+                              const compressed = await compressImageFile(picked, 1200, 1600, 0.82);
+                              setFiles(prev => ({ ...prev, idFile: compressed }));
+                            }
                           }}
                           className={`absolute inset-0 w-full h-full opacity-0 ${formData.idType ? "cursor-pointer" : "cursor-not-allowed pointer-events-none"}`}
                         />
