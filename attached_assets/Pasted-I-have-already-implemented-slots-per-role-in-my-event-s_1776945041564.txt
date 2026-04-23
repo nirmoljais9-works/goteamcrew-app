@@ -1,0 +1,149 @@
+I have already implemented "slots per role" in my event system. Now I want to improve how event cards are displayed in the crew dashboard to increase conversions and properly reflect role-based slots and pay.
+
+Make the following updates:
+
+-----------------------------------
+1. REMOVE WEAK UI ELEMENTS
+-----------------------------------
+
+- Remove "Pay TBD"
+- Remove "Tap to see full details"
+- Shorten long location text
+
+-----------------------------------
+2. ADD STRONG PAY DISPLAY (VERY IMPORTANT)
+-----------------------------------
+
+From role configs, calculate:
+
+- overallMinPay = lowest pay across all roles
+- overallMaxPay = highest pay across all roles
+
+Display on card:
+
+"₹{min} – ₹{max} / day"
+
+OR
+
+"Earn up to ₹{max}/day"
+
+-----------------------------------
+3. SHOW ROLE-WISE PAY (OPTIONAL SMALL TEXT)
+-----------------------------------
+
+Below role tags, show:
+
+Models: ₹2500–6000  
+Promoters: ₹2000–6000  
+Volunteers: ₹1500–2500  
+
+(Use compact UI, not cluttered)
+
+-----------------------------------
+4. DISPLAY ROLE-BASED SLOTS (CORE FEATURE)
+-----------------------------------
+
+You already have slots per role.
+
+Now display:
+
+Instead of only:
+"9 spots left"
+
+Show:
+
+Models: 2 left  
+Promoters: 1 left  
+Volunteers: 6 left  
+
+Also show total:
+"Total 9 spots left"
+
+-----------------------------------
+5. ADD URGENCY LOGIC
+-----------------------------------
+
+If any role slots <= 2:
+
+Show:
+"⚡ Only {X} spots left"
+
+-----------------------------------
+6. ADD TOTAL EARNINGS HIGHLIGHT (HIGH IMPACT)
+-----------------------------------
+
+Calculate:
+eventDays × maxPay
+
+Display:
+
+"Earn up to ₹54,000"
+
+(very important for conversion)
+
+-----------------------------------
+7. IMPROVE LOCATION DISPLAY
+-----------------------------------
+
+Convert long address into:
+
+"📍 Greater Noida"
+
+(or city + venue short name)
+
+-----------------------------------
+8. IMPROVE CTA BUTTON
+-----------------------------------
+
+Replace:
+"View Details"
+
+With:
+
+"Apply Now →"
+
+-----------------------------------
+9. KEEP EXISTING GOOD ELEMENTS
+-----------------------------------
+
+- Meals badge (3 Meals)
+- Referral reward
+- Role tags
+
+-----------------------------------
+10. FINAL CARD STRUCTURE (REFERENCE)
+-----------------------------------
+
+Auto Expo 2027
+
+📍 Greater Noida  
+📅 Jan 10 – 18 (9 days)
+
+🔥 Earn up to ₹54,000  
+💰 ₹1000–6000/day  
+
+Models • Promoters • Volunteers  
+
+Models: 2 left  
+Promoters: 1 left  
+Volunteers: 6 left  
+
+⚡ Only 2 spots left  
+🍽 3 Meals  
+🎁 ₹1000 referral  
+
+[ Apply Now → ]
+
+-----------------------------------
+GOAL
+-----------------------------------
+
+Make event card more:
+- conversion-focused
+- clear
+- role-specific
+- earnings-driven
+
+Not just informational.
+
+Avoid clutter but prioritize high-impact info.

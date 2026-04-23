@@ -1,8 +1,7 @@
 import { useGetShifts, useGetCrewProfile } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
-import { MapPin, CalendarDays, Users, ShieldX, Timer, ChevronRight, Gift } from "lucide-react";
+import { format, differenceInCalendarDays } from "date-fns";
+import { MapPin, CalendarDays, Users, ShieldX, Timer, Gift, Zap, IndianRupee } from "lucide-react";
 import { motion } from "framer-motion";
 
 function isGenderEligible(profileGender: string | null | undefined, eventGenderRequired: string | null | undefined): boolean {
@@ -18,7 +17,19 @@ function getGenderLabel(gender: string | null | undefined): string {
   return `${gender} Only`;
 }
 
-type RoleConfig = { gender: string; role: string; task?: string; minPay?: string | number; maxPay?: string | number; pay?: string | number };
+type RoleConfig = {
+  gender: string;
+  role: string;
+  task?: string;
+  slots?: number;
+  // new format
+  payMale?: string | null;
+  payFemale?: string | null;
+  // legacy format
+  minPay?: string | number;
+  maxPay?: string | number;
+  pay?: string | number;
+};
 
 function parseRoleConfigs(raw: any): RoleConfig[] {
   if (!raw) return [];
@@ -30,12 +41,76 @@ function parseRoleConfigs(raw: any): RoleConfig[] {
   }
 }
 
-function getCardDisplayData(s: any, profile: any): { roles: string[]; payLabel: string | null; genderRequired: string | null } {
+/** Parse "1000" or "1000-4000" into { min, max } */
+function parsePayStr(val: any): { min: number | null; max: number | null } {
+  if (!val && val !== 0) return { min: null, max: null };
+  const s = String(val).replace(/[–—]/g, "-").trim();
+  const parts = s.split("-").map((p: string) => p.trim()).filter(Boolean);
+  const min = parseFloat(parts[0]);
+  const max = parts[1] ? parseFloat(parts[1]) : NaN;
+  return {
+    min: !isNaN(min) ? min : null,
+    max: !isNaN(max) ? max : !isNaN(min) ? min : null,
+  };
+}
+
+/** Extract pay range from a single role config, respecting gender preference */
+function getRolePayRange(c: RoleConfig, profileGender?: string): { min: number | null; max: number | null } {
+  // New format: payMale / payFemale are range strings
+  if (c.payMale || c.payFemale) {
+    if (profileGender === "male" && c.payMale) return parsePayStr(c.payMale);
+    if (profileGender === "female" && c.payFemale) return parsePayStr(c.payFemale);
+    // No gender preference or "both" — use widest range
+    const mR = c.payMale ? parsePayStr(c.payMale) : { min: null, max: null };
+    const fR = c.payFemale ? parsePayStr(c.payFemale) : { min: null, max: null };
+    const mins = [mR.min, fR.min].filter((v): v is number => v !== null);
+    const maxs = [mR.max, fR.max].filter((v): v is number => v !== null);
+    return {
+      min: mins.length ? Math.min(...mins) : null,
+      max: maxs.length ? Math.max(...maxs) : null,
+    };
+  }
+  // Legacy format: minPay / maxPay / pay
+  const lMin = parsePayStr(c.minPay ?? c.pay);
+  const lMax = parsePayStr(c.maxPay ?? c.pay);
+  return { min: lMin.min, max: lMax.max ?? lMin.max };
+}
+
+/** Friendly pay display for a range */
+function fmtPay(min: number | null, max: number | null): string | null {
+  if (min === null && max === null) return null;
+  const lo = min ?? max!;
+  const hi = max ?? min!;
+  if (lo === hi) return `₹${lo.toLocaleString("en-IN")}`;
+  return `₹${lo.toLocaleString("en-IN")}–₹${hi.toLocaleString("en-IN")}`;
+}
+
+/** Shorten a long venue address to the most meaningful part */
+function shortenLocation(loc: string | null | undefined): string {
+  if (!loc || loc === "TBD") return "Location TBD";
+  const parts = loc.split(",").map((p: string) => p.trim()).filter(Boolean);
+  if (parts.length >= 3) {
+    // Return last 2 comma-parts (usually area + city)
+    return parts.slice(-2).join(", ");
+  }
+  if (parts.length === 2) return parts.join(", ");
+  return loc.length > 32 ? loc.slice(0, 30) + "…" : loc;
+}
+
+interface CardData {
+  roles: string[];
+  overallMin: number | null;
+  overallMax: number | null;
+  genderRequired: string | null;
+  rolePayRows: Array<{ role: string; payStr: string | null }>;
+  roleSlotsRows: Array<{ role: string; slots: number }>;
+}
+
+function getCardData(s: any, profile: any): CardData {
   const profileGender = (profile?.gender || "").toLowerCase();
   const configs = parseRoleConfigs(s.eventRoleConfigs);
 
   if (configs.length > 0) {
-    // Filter configs relevant to this crew member's gender
     const relevant = configs.filter(c => {
       if (!c.gender || c.gender === "both") return true;
       if (!profileGender) return true;
@@ -43,60 +118,72 @@ function getCardDisplayData(s: any, profile: any): { roles: string[]; payLabel: 
     });
     const display = relevant.length > 0 ? relevant : configs;
 
-    // All unique role names
-    const roles = [...new Set(display.map(c => c.role).filter(Boolean))];
+    const roles = [...new Set(configs.map(c => c.role).filter(Boolean))];
 
-    // Collect all minPay / maxPay values
-    const allMins = display.map(c => parseFloat(String(c.minPay ?? c.pay ?? ""))).filter(v => !isNaN(v));
-    const allMaxes = display.map(c => parseFloat(String(c.maxPay ?? c.pay ?? ""))).filter(v => !isNaN(v));
-    const lo = allMins.length ? Math.min(...allMins) : null;
-    const hi = allMaxes.length ? Math.max(...allMaxes) : null;
+    // Overall pay range (all relevant roles)
+    const allMins: number[] = [];
+    const allMaxs: number[] = [];
+    for (const c of display) {
+      const r = getRolePayRange(c, profileGender);
+      if (r.min !== null) allMins.push(r.min);
+      if (r.max !== null) allMaxs.push(r.max);
+    }
+    const overallMin = allMins.length ? Math.min(...allMins) : null;
+    const overallMax = allMaxs.length ? Math.max(...allMaxs) : null;
 
-    let payLabel: string | null = null;
-    if (lo !== null && hi !== null && lo !== hi) {
-      payLabel = `₹${lo.toLocaleString("en-IN")}–₹${hi.toLocaleString("en-IN")}`;
-    } else if (lo !== null) {
-      payLabel = `₹${lo.toLocaleString("en-IN")}`;
-    } else if (hi !== null) {
-      payLabel = `₹${hi.toLocaleString("en-IN")}`;
+    // Per-role pay rows (all configs, grouped by role)
+    const seenRoles = new Set<string>();
+    const rolePayRows: Array<{ role: string; payStr: string | null }> = [];
+    for (const c of configs) {
+      if (!c.role || seenRoles.has(c.role)) continue;
+      seenRoles.add(c.role);
+      const r = getRolePayRange(c, profileGender);
+      rolePayRows.push({ role: c.role, payStr: fmtPay(r.min, r.max) });
     }
 
-    // Overall gender requirement derived from configs
+    // Per-role slot rows
+    const roleSlotsRows: Array<{ role: string; slots: number }> = [];
+    for (const c of configs) {
+      if (!c.role || !c.slots || c.slots <= 0) continue;
+      const existing = roleSlotsRows.find(r => r.role === c.role);
+      if (existing) {
+        existing.slots += c.slots;
+      } else {
+        roleSlotsRows.push({ role: c.role, slots: c.slots });
+      }
+    }
+
     const genders = [...new Set(configs.map(c => c.gender?.toLowerCase()).filter(Boolean))];
     const genderRequired = genders.length === 1 && genders[0] !== "both" ? genders[0] : null;
 
-    return { roles, payLabel, genderRequired };
+    return { roles, overallMin, overallMax, genderRequired, rolePayRows, roleSlotsRows };
   }
 
-  // Fallback to legacy fields
+  // Fallback to legacy shift-level fields
   const legacyRole = s.eventRole || s.role;
-  const payFemaleMin = s.eventPayFemale != null ? parseFloat(s.eventPayFemale) : null;
-  const payFemaleMax = s.eventPayFemaleMax != null ? parseFloat(s.eventPayFemaleMax) : null;
-  const payMaleMin = s.eventPayMale != null ? parseFloat(s.eventPayMale) : null;
-  const payMaleMax = s.eventPayMaleMax != null ? parseFloat(s.eventPayMaleMax) : null;
-  const payFresher = s.eventPayFresher != null ? parseFloat(s.eventPayFresher) : null;
-  const payBase = s.eventPayPerDay != null ? parseFloat(s.eventPayPerDay) : null;
+  const pFemMin = s.eventPayFemale != null ? parseFloat(s.eventPayFemale) : null;
+  const pFemMax = s.eventPayFemaleMax != null ? parseFloat(s.eventPayFemaleMax) : null;
+  const pMalMin = s.eventPayMale != null ? parseFloat(s.eventPayMale) : null;
+  const pMalMax = s.eventPayMaleMax != null ? parseFloat(s.eventPayMaleMax) : null;
+  const pBase  = s.eventPayPerDay != null ? parseFloat(s.eventPayPerDay) : null;
 
-  let payMin: number | null = payBase;
-  let payMax: number | null = null;
-  if (profileGender === "female" && payFemaleMin != null) {
-    payMin = payFemaleMin;
-    payMax = payFemaleMax !== payFemaleMin ? payFemaleMax : null;
-  } else if (profileGender === "male" && payMaleMin != null) {
-    payMin = payMaleMin;
-    payMax = payMaleMax !== payMaleMin ? payMaleMax : null;
-  } else if ((profile?.experienceLevel || "").toLowerCase() === "fresher" && payFresher != null) {
-    payMin = payFresher;
-  }
+  let lo: number | null = pBase;
+  let hi: number | null = null;
+  if (profileGender === "female" && pFemMin !== null) { lo = pFemMin; hi = pFemMax !== pFemMin ? pFemMax : null; }
+  else if (profileGender === "male" && pMalMin !== null) { lo = pMalMin; hi = pMalMax !== pMalMin ? pMalMax : null; }
 
-  let payLabel: string | null = null;
-  if (payMin !== null && payMax !== null) {
-    payLabel = `₹${payMin.toLocaleString("en-IN")}–₹${payMax.toLocaleString("en-IN")}`;
-  } else if (payMin !== null) {
-    payLabel = `₹${payMin.toLocaleString("en-IN")}`;
-  }
+  const allVals: number[] = [pBase, pFemMin, pFemMax, pMalMin, pMalMax].filter((v): v is number => v !== null);
+  const overallMin = allVals.length ? Math.min(...allVals) : lo;
+  const overallMax = allVals.length ? Math.max(...allVals) : hi;
 
-  return { roles: legacyRole ? [legacyRole] : [], payLabel, genderRequired: s.eventGenderRequired || s.genderPreference || null };
+  return {
+    roles: legacyRole ? [legacyRole] : [],
+    overallMin,
+    overallMax,
+    genderRequired: s.eventGenderRequired || s.genderPreference || null,
+    rolePayRows: [],
+    roleSlotsRows: [],
+  };
 }
 
 export default function BrowseShifts() {
@@ -178,28 +265,54 @@ export default function BrowseShifts() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {openShifts.map((shift, i) => {
             const s = shift as any;
-            const { roles: displayRoles, payLabel, genderRequired: derivedGender } = getCardDisplayData(s, p);
+            const { roles, overallMin, overallMax, genderRequired: derivedGender, rolePayRows, roleSlotsRows } = getCardData(s, p);
             const gender = derivedGender || s.eventGenderRequired || s.genderPreference;
             const genderBoth = !gender || gender === "both" || gender === "any";
             const eligible = isGenderEligible(profileGender, gender);
-            const spotsLeft = (shift.spotsTotal || 0) - (shift.spotsFilled || 0);
-            const fewSpots = spotsLeft > 0 && spotsLeft <= 3;
+            const spotsLeft = Math.max(0, (shift.spotsTotal || 0) - (shift.spotsFilled || 0));
+            const isFull = spotsLeft <= 0;
+            const isUrgent = !isFull && spotsLeft <= 2;
             const referralReward = s.eventReferralReward ? parseFloat(s.eventReferralReward) : null;
             const eventStart = s.eventStartDate || shift.startTime;
             const referralOpen = eventStart ? new Date() < new Date(eventStart) : true;
 
+            // Event duration in days
+            const eventDays = (() => {
+              if (s.eventStartDate && s.eventEndDate) {
+                const diff = differenceInCalendarDays(new Date(s.eventEndDate), new Date(s.eventStartDate));
+                return diff + 1;
+              }
+              return 1;
+            })();
+
+            // Max total earnings = eventDays × overallMax
+            const maxEarnings = overallMax !== null && eventDays > 1
+              ? overallMax * eventDays
+              : null;
+
+            // Date label
             const dateLabel = (() => {
               if (s.eventStartDate && s.eventEndDate) {
                 const sd = new Date(s.eventStartDate);
                 const ed = new Date(s.eventEndDate);
-                const sameDayStr = format(sd, "yyyy-MM-dd") === format(ed, "yyyy-MM-dd");
-                if (sameDayStr) {
-                  return `${format(sd, "d MMM yyyy")} | ${format(sd, "h:mm a")} – ${format(ed, "h:mm a")}`;
+                if (format(sd, "yyyy-MM-dd") === format(ed, "yyyy-MM-dd")) {
+                  return format(sd, "d MMM yyyy");
                 }
                 return `${format(sd, "d MMM")} – ${format(ed, "d MMM yyyy")}`;
               }
-              return format(new Date(shift.startTime), "EEE, MMM d, yyyy");
+              return format(new Date(shift.startTime), "EEE, MMM d");
             })();
+
+            // Pay label (headline)
+            const payLabel = fmtPay(overallMin, overallMax);
+            const hasPayRange = overallMin !== null && overallMax !== null && overallMin !== overallMax;
+
+            // Multiple role-pay rows worth showing?
+            const showRolePayBreakdown = rolePayRows.length > 1 && rolePayRows.some(r => r.payStr);
+            const showRoleSlots = roleSlotsRows.length > 0;
+
+            // Short location
+            const shortLocation = shortenLocation(shift.eventLocation);
 
             return (
               <motion.div
@@ -212,6 +325,9 @@ export default function BrowseShifts() {
                   eligible ? "border-slate-200" : "border-violet-200 opacity-90"
                 }`}
               >
+                {/* Top gradient accent */}
+                <div className="h-1 bg-gradient-to-r from-primary via-violet-500 to-indigo-400" />
+
                 {/* Not eligible banner */}
                 {!eligible && (
                   <div className="bg-violet-50 px-4 py-2 flex items-center gap-2">
@@ -227,67 +343,108 @@ export default function BrowseShifts() {
                 {/* Card body */}
                 <div className="p-5 flex-1 space-y-3">
 
-                  {/* Top row: Role tag(s) + Pay */}
-                  <div className="flex items-start justify-between gap-3">
-                    {displayRoles.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {displayRoles.map(r => (
-                          <span key={r} className="text-[11px] font-bold uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full leading-none">
-                            {r}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span />
-                    )}
-                    {payLabel ? (
-                      <div className="text-right shrink-0">
-                        <div className="text-base font-display font-bold text-foreground leading-tight">
-                          {payLabel}
-                        </div>
-                        <div className="text-[10px] font-normal text-muted-foreground">/day</div>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground shrink-0">Pay TBD</span>
-                    )}
-                  </div>
+                  {/* Role tags */}
+                  {roles.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {roles.map(r => (
+                        <span key={r} className="text-[11px] font-bold uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full leading-none">
+                          {r}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
-                  {/* Title */}
+                  {/* Event title */}
                   <h3 className="text-[17px] font-bold text-foreground leading-snug line-clamp-2">
                     {shift.eventTitle}
                   </h3>
 
-                  {/* Location */}
-                  {shift.eventLocation && (
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                      <span className="line-clamp-1">{shift.eventLocation}</span>
+                  {/* Earnings highlight (only for multi-day events) */}
+                  {maxEarnings !== null && (
+                    <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
+                      <span className="text-lg">🔥</span>
+                      <span className="text-sm font-bold text-emerald-800">
+                        Earn up to ₹{maxEarnings.toLocaleString("en-IN")}
+                      </span>
                     </div>
                   )}
 
-                  {/* Date */}
-                  <div className="flex items-center gap-1.5 text-sm text-slate-600 font-medium">
-                    <CalendarDays className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                    <span>{dateLabel}</span>
+                  {/* Pay range headline */}
+                  {payLabel && (
+                    <div className="flex items-center gap-1.5">
+                      <IndianRupee className="w-4 h-4 text-slate-400 shrink-0" />
+                      <span className="text-[15px] font-bold text-foreground">
+                        {payLabel}
+                        <span className="text-xs font-normal text-muted-foreground ml-1">/day</span>
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Location */}
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                    <span className="line-clamp-1">{shortLocation}</span>
                   </div>
 
-                  {/* Badges */}
-                  <div className="flex flex-wrap gap-1.5 pt-0.5">
-                    {spotsLeft <= 0 ? (
+                  {/* Date + duration */}
+                  <div className="flex items-center gap-1.5 text-sm text-slate-600 font-medium">
+                    <CalendarDays className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                    <span>
+                      {dateLabel}
+                      {eventDays > 1 && (
+                        <span className="ml-1.5 text-[11px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                          {eventDays} days
+                        </span>
+                      )}
+                    </span>
+                  </div>
+
+                  {/* Role-wise pay breakdown */}
+                  {showRolePayBreakdown && (
+                    <div className="bg-slate-50 rounded-xl px-3 py-2 space-y-1">
+                      {rolePayRows.filter(r => r.payStr).map(r => (
+                        <div key={r.role} className="flex items-center justify-between">
+                          <span className="text-[11px] font-semibold text-slate-500">{r.role}</span>
+                          <span className="text-[11px] font-bold text-slate-700">{r.payStr}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Role-wise slots */}
+                  {showRoleSlots && (
+                    <div className={`rounded-xl px-3 py-2 space-y-1 ${isFull ? "bg-red-50" : "bg-slate-50"}`}>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Openings</p>
+                      {roleSlotsRows.map(r => (
+                        <div key={r.role} className="flex items-center justify-between">
+                          <span className="text-[11px] font-semibold text-slate-500">{r.role}</span>
+                          <span className={`text-[11px] font-bold ${isFull ? "text-red-500" : "text-indigo-600"}`}>
+                            {r.slots} slot{r.slots !== 1 ? "s" : ""}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Badges row */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {/* Urgency / spots */}
+                    {isFull ? (
                       <span className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-red-50 text-red-600">
-                        <Users className="w-3 h-3" />
-                        Full
+                        <Users className="w-3 h-3" /> Full
                       </span>
-                    ) : (
-                      <span className={`flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full ${
-                        fewSpots
-                          ? "bg-amber-50 text-amber-700"
-                          : "bg-slate-100 text-slate-600"
-                      }`}>
-                        <Users className="w-3 h-3" />
-                        {fewSpots ? `Only ${spotsLeft} spot${spotsLeft !== 1 ? "s" : ""} left` : `${spotsLeft} spots left`}
+                    ) : isUrgent ? (
+                      <span className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                        <Zap className="w-3 h-3" />
+                        Only {spotsLeft} spot{spotsLeft !== 1 ? "s" : ""} left
                       </span>
-                    )}
+                    ) : !showRoleSlots ? (
+                      <span className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+                        <Users className="w-3 h-3" /> {spotsLeft} spots left
+                      </span>
+                    ) : null}
+
+                    {/* Gender restriction */}
                     {!genderBoth && gender && (
                       <span className={`flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full ${
                         eligible ? "bg-violet-50 text-violet-700" : "bg-violet-100 text-violet-800"
@@ -299,24 +456,29 @@ export default function BrowseShifts() {
                         ) : `${gender} Only`}
                       </span>
                     )}
-                    <span className={`flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full ${
-                      s.eventFoodProvided
-                        ? "bg-emerald-50 text-emerald-700 font-semibold"
-                        : "text-gray-400 font-normal"
-                    }`}>
-                      🍽 {s.eventFoodProvided
-                        ? (s.eventMealsProvided || "Food Included")
-                        : "Self-arranged"}
-                    </span>
+
+                    {/* Food */}
+                    {s.eventFoodProvided && (
+                      <span className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">
+                        🍽 {s.eventMealsProvided ? (() => {
+                          const map: Record<string, string> = { "1_meal": "1 Meal", "2_meals": "2 Meals", "3_meals": "3 Meals", "snacks_only": "Snacks" };
+                          return map[s.eventMealsProvided] || s.eventMealsProvided;
+                        })() : "Food Included"}
+                      </span>
+                    )}
+
+                    {/* Incentives */}
                     {s.eventIncentives && (
                       <span className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">
                         🎯 Incentives
                       </span>
                     )}
+
+                    {/* Referral */}
                     {referralReward && referralReward > 0 && referralOpen && (
                       <span className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-green-50 text-green-700">
                         <Gift className="w-3 h-3" />
-                        Earn ₹{referralReward.toLocaleString("en-IN")} per referral
+                        ₹{referralReward.toLocaleString("en-IN")} referral
                       </span>
                     )}
                   </div>
@@ -324,28 +486,26 @@ export default function BrowseShifts() {
 
                 {/* CTA footer */}
                 <div className="px-5 pb-4">
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                  <div className="pt-3 border-t border-slate-100">
                     {eligible ? (
-                      <>
-                        <span className="text-xs text-muted-foreground">Tap to see full details</span>
-                        <span className="flex items-center gap-0.5 text-sm font-semibold text-indigo-600 group-hover:gap-1.5 transition-all duration-150">
-                          View Details <ChevronRight className="w-4 h-4" />
-                        </span>
-                      </>
+                      isFull ? (
+                        <div className="flex items-center justify-center h-10 rounded-xl bg-slate-100 text-slate-400 text-sm font-semibold">
+                          All Slots Filled
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center h-10 rounded-xl bg-primary text-white text-sm font-bold gap-1.5 group-hover:bg-primary/90 transition-colors">
+                          Apply Now
+                          <span className="group-hover:translate-x-0.5 transition-transform duration-150">→</span>
+                        </div>
+                      )
                     ) : referralOpen ? (
-                      <>
-                        <span className="text-xs text-muted-foreground">Not for your profile</span>
-                        <span className="flex items-center gap-1 text-sm font-semibold text-violet-600 group-hover:gap-1.5 transition-all duration-150">
-                          <Gift className="w-4 h-4" /> Refer & Earn
-                        </span>
-                      </>
+                      <div className="flex items-center justify-center h-10 rounded-xl bg-violet-50 border border-violet-200 text-violet-700 text-sm font-semibold gap-1.5">
+                        <Gift className="w-4 h-4" /> Refer &amp; Earn
+                      </div>
                     ) : (
-                      <>
-                        <span className="text-xs text-muted-foreground">Not for your profile</span>
-                        <span className="flex items-center gap-1 text-sm font-semibold text-muted-foreground">
-                          Referral Closed
-                        </span>
-                      </>
+                      <div className="flex items-center justify-center h-10 rounded-xl bg-slate-50 text-slate-400 text-sm font-medium">
+                        Not for your profile
+                      </div>
                     )}
                   </div>
                 </div>
