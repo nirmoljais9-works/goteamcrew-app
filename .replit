@@ -1,2 +1,11 @@
+modules = ["nodejs-24"]
 [agent]
 expertMode = true
+
+[[ports]]
+localPort = 8080
+externalPort = 80
+
+[[ports]]
+localPort = 24516
+externalPort = 3000
