@@ -69,6 +69,7 @@ interface RoleConfigEntry {
   minPay?: number;
   maxPay?: number;
   pay?: number; // legacy
+  slots?: number;
 }
 
 function getMatchingRoleConfig(s: any, profile: any): RoleConfigEntry | null {
@@ -1084,6 +1085,36 @@ export default function ShiftDetail() {
             </span>
           )}
         </div>
+
+        {/* Openings — per-role slot breakdown */}
+        {(() => {
+          const raw = s.eventRoleConfigs;
+          if (!raw) return null;
+          try {
+            const configs: RoleConfigEntry[] = JSON.parse(raw);
+            const hasSlots = configs.some(c => c.slots != null && c.slots > 0);
+            if (!hasSlots) return null;
+            return (
+              <div className="rounded-2xl border border-border/60 bg-card p-4">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Openings</p>
+                <div className="space-y-2">
+                  {configs.map((c, idx) => c.role && c.slots != null && c.slots > 0 ? (
+                    <div key={idx} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="text-sm font-medium text-foreground">{c.role}</span>
+                        {c.gender && c.gender !== "both" && (
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-full capitalize">{c.gender}</span>
+                        )}
+                      </div>
+                      <span className="text-sm font-semibold text-primary">{c.slots} slot{c.slots !== 1 ? "s" : ""}</span>
+                    </div>
+                  ) : null)}
+                </div>
+              </div>
+            );
+          } catch { return null; }
+        })()}
 
         {/* Food — minimal inline */}
         <p className="text-sm text-gray-500">

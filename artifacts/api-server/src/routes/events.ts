@@ -167,8 +167,8 @@ router.get("/events/drafts", requireAdmin, async (_req, res) => {
 router.post("/events", requireAdmin, async (req: any, res) => {
   console.log("[events] REQUEST BODY:", JSON.stringify(req.body, null, 2));
   try {
-    const { saveAsDraft, title, description, city, location, latitude, longitude, startDate, endDate, clientName, timings, dressCode, dressCodeImage, foodProvided, mealsProvided, incentives, referralReward, referralMessage, totalSlots, expectedCheckIn, expectedCheckOut, lateThresholdMinutes, breakWindowStart, breakWindowEnd, allowedBreakMinutes } = req.body;
-    let { role, genderRequired, workTask, payPerDay, payFemale, payMale, payFresher, roleConfigs: roleConfigsRaw } = req.body;
+    const { saveAsDraft, title, description, city, location, latitude, longitude, startDate, endDate, clientName, timings, dressCode, dressCodeImage, foodProvided, mealsProvided, incentives, referralReward, referralMessage, expectedCheckIn, expectedCheckOut, lateThresholdMinutes, breakWindowStart, breakWindowEnd, allowedBreakMinutes } = req.body;
+    let { role, genderRequired, workTask, payPerDay, payFemale, payMale, payFresher, roleConfigs: roleConfigsRaw, totalSlots } = req.body;
     let payMaleMax: string | null = null;
     let payFemaleMax: string | null = null;
 
@@ -213,6 +213,12 @@ router.post("/events", requireAdmin, async (req: any, res) => {
             payFemale = rf.min; payFemaleMax = rf.max;
           }
           if (!payPerDay) payPerDay = payMale ?? payFemale ?? first.minPay ?? first.pay ?? 0;
+          // If per-role slots exist, sum them to get totalSlots (authoritative source)
+          const hasPerRoleSlots = configs.some((c: any) => c.slots != null && parseInt(c.slots) > 0);
+          if (hasPerRoleSlots) {
+            const summedSlots = configs.reduce((acc: number, c: any) => acc + (parseInt(c.slots) || 0), 0);
+            if (summedSlots > 0) totalSlots = summedSlots;
+          }
         }
         roleConfigsRaw = JSON.stringify(configs);
       } catch {}
@@ -473,6 +479,12 @@ router.put("/events/:id", requireAdmin, async (req: any, res) => {
             payFemale = rf.min; putPayFemaleMax = rf.max;
           }
           payPerDay = payMale ?? payFemale ?? first.minPay ?? first.pay ?? 0;
+          // If per-role slots exist, sum them to get totalSlots (authoritative source)
+          const hasPerRoleSlots = configs.some((c: any) => c.slots != null && parseInt(c.slots) > 0);
+          if (hasPerRoleSlots) {
+            const summedSlots = configs.reduce((acc: number, c: any) => acc + (parseInt(c.slots) || 0), 0);
+            if (summedSlots > 0) totalSlots = summedSlots;
+          }
         }
         putRoleConfigsRaw = JSON.stringify(configs);
       } catch {}

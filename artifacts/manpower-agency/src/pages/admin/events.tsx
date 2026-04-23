@@ -27,6 +27,8 @@ interface RoleConfig {
   payFemale: string;
   payMaleError?: string;
   payFemaleError?: string;
+  slots: string;
+  slotsError?: string;
 }
 
 /** Sanitise a pay input value in real-time:
@@ -427,7 +429,7 @@ export default function AdminEvents() {
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [lastPrefs, setLastPrefs] = useState<any>(null);
   const [timePreset, setTimePreset] = useState<"9to6" | "10to7" | "custom">("custom");
-  const [roleConfigs, setRoleConfigs] = useState<RoleConfig[]>([{ gender: "both", role: "", task: "", payMale: "", payFemale: "" }]);
+  const [roleConfigs, setRoleConfigs] = useState<RoleConfig[]>([{ gender: "both", role: "", task: "", payMale: "", payFemale: "", slots: "" }]);
   const [roleConfigError, setRoleConfigError] = useState("");
   const [hasDraft, setHasDraft] = useState(false);
   const [draftSaved, setDraftSaved] = useState(false);
@@ -504,7 +506,7 @@ export default function AdminEvents() {
       setHasDraft(false);
       setDraftSaved(false);
       setIsMultiDay(false);
-      setRoleConfigs([{ gender: "both", role: "", task: "", payMale: "", payFemale: "" }]);
+      setRoleConfigs([{ gender: "both", role: "", task: "", payMale: "", payFemale: "", slots: "" }]);
       setRoleConfigError("");
       if (draftTimer.current) clearTimeout(draftTimer.current);
       setGeoStatus("idle");
@@ -545,16 +547,21 @@ export default function AdminEvents() {
       if (editingEvent.roleConfigs) {
         try {
           const parsed = JSON.parse(editingEvent.roleConfigs);
+          // Backward compat: if no per-role slots, distribute totalSlots equally
+          const legacyTotal = editingEvent.totalSlots ?? 10;
+          const roleCount = parsed.length || 1;
+          const perRoleFallback = Math.max(1, Math.round(legacyTotal / roleCount));
           setRoleConfigs(parsed.map((c: any) => ({
             gender: c.gender || "both",
             role: c.role || "",
             task: c.task || "",
+            slots: c.slots != null ? String(c.slots) : String(perRoleFallback),
             ...toPayFields(c),
           })));
         } catch {
           const pm = buildPayRange(editingEvent.payMale, (editingEvent as any).payMaleMax);
           const pf = buildPayRange(editingEvent.payFemale, (editingEvent as any).payFemaleMax) || buildPayRange(editingEvent.payPerDay, null);
-          setRoleConfigs([{ gender: "both", role: editingEvent.role || "", task: editingEvent.workTask || "", payMale: pm, payFemale: pf }]);
+          setRoleConfigs([{ gender: "both", role: editingEvent.role || "", task: editingEvent.workTask || "", payMale: pm, payFemale: pf, slots: String(editingEvent.totalSlots ?? 10) }]);
         }
       } else if (editingEvent.payFemale && editingEvent.payMale) {
         setRoleConfigs([{
@@ -563,15 +570,16 @@ export default function AdminEvents() {
           task: editingEvent.workTask || "",
           payMale: buildPayRange(editingEvent.payMale, (editingEvent as any).payMaleMax),
           payFemale: buildPayRange(editingEvent.payFemale, (editingEvent as any).payFemaleMax),
+          slots: String(editingEvent.totalSlots ?? 10),
         }]);
       } else if (editingEvent.payFemale) {
-        setRoleConfigs([{ gender: "female", role: editingEvent.role || "", task: editingEvent.workTask || "", payMale: "", payFemale: buildPayRange(editingEvent.payFemale, (editingEvent as any).payFemaleMax) }]);
+        setRoleConfigs([{ gender: "female", role: editingEvent.role || "", task: editingEvent.workTask || "", payMale: "", payFemale: buildPayRange(editingEvent.payFemale, (editingEvent as any).payFemaleMax), slots: String(editingEvent.totalSlots ?? 10) }]);
       } else if (editingEvent.payMale) {
-        setRoleConfigs([{ gender: "male", role: editingEvent.role || "", task: editingEvent.workTask || "", payMale: buildPayRange(editingEvent.payMale, (editingEvent as any).payMaleMax), payFemale: "" }]);
+        setRoleConfigs([{ gender: "male", role: editingEvent.role || "", task: editingEvent.workTask || "", payMale: buildPayRange(editingEvent.payMale, (editingEvent as any).payMaleMax), payFemale: "", slots: String(editingEvent.totalSlots ?? 10) }]);
       } else {
         const p = buildPayRange(editingEvent.payPerDay, null);
         const g = (editingEvent.genderRequired || "both") as "male" | "female" | "both";
-        setRoleConfigs([{ gender: g, role: editingEvent.role || "", task: editingEvent.workTask || "", payMale: p, payFemale: p }]);
+        setRoleConfigs([{ gender: g, role: editingEvent.role || "", task: editingEvent.workTask || "", payMale: p, payFemale: p, slots: String(editingEvent.totalSlots ?? 10) }]);
       }
 
       if (editingEvent.latitude && editingEvent.longitude) {
@@ -799,6 +807,7 @@ export default function AdminEvents() {
       const endISO = values.endDate && et ? new Date(`${values.endDate}T${et}:00+05:30`).toISOString() : null;
       const timings = st && et ? `${formatTime12h(st)} – ${formatTime12h(et)} IST` : null;
 
+      const draftTotalSlots = roleConfigs.reduce((sum, c) => sum + (parseInt(c.slots) || 0), 0) || 1;
       const payload: any = {
         saveAsDraft: true,
         title: values.title,
@@ -807,8 +816,9 @@ export default function AdminEvents() {
           gender: c.gender, role: c.role, task: c.task,
           payMale: c.gender !== "female" ? (c.payMale || null) : null,
           payFemale: c.gender !== "male" ? (c.payFemale || null) : null,
+          slots: parseInt(c.slots) || 1,
         }))),
-        totalSlots: values.totalSlots ? parseInt(values.totalSlots) || 10 : 10,
+        totalSlots: draftTotalSlots,
         ...(startISO && { startDate: startISO }),
         ...(endISO && { endDate: endISO }),
         ...(timings && { timings }),
@@ -926,6 +936,20 @@ export default function AdminEvents() {
       setRoleConfigError("Fix pay range errors before saving (max must be ≥ min).");
       return;
     }
+    // Validate slots
+    const slotsInvalid = roleConfigs.some(c => {
+      const n = parseInt(c.slots);
+      return isNaN(n) || n < 1;
+    });
+    if (slotsInvalid) {
+      setRoleConfigError("Each role must have at least 1 slot.");
+      // Mark individual slot errors
+      setRoleConfigs(prev => prev.map(c => {
+        const n = parseInt(c.slots);
+        return { ...c, slotsError: (isNaN(n) || n < 1) ? "Min 1 slot required" : undefined };
+      }));
+      return;
+    }
     setRoleConfigError("");
 
     const st = parseTime(values.startTime);
@@ -934,6 +958,7 @@ export default function AdminEvents() {
     const endISO   = new Date(`${values.endDate}T${et}:00+05:30`).toISOString();
     const timings  = `${formatTime12h(st)} – ${formatTime12h(et)} IST`;
 
+    const totalSlots = roleConfigs.reduce((sum, c) => sum + (parseInt(c.slots) || 0), 0) || 1;
     const payload = {
       title: values.title,
       city: "",
@@ -942,8 +967,9 @@ export default function AdminEvents() {
         gender: c.gender, role: c.role, task: c.task,
         payMale: c.gender !== "female" ? (c.payMale || null) : null,
         payFemale: c.gender !== "male" ? (c.payFemale || null) : null,
+        slots: parseInt(c.slots) || 1,
       }))),
-      totalSlots: values.totalSlots ? parseInt(values.totalSlots) || 10 : 10,
+      totalSlots,
       startDate: startISO,
       endDate: endISO,
       timings,
@@ -1733,6 +1759,29 @@ export default function AdminEvents() {
                     {config.gender === "both" && (!config.payMale || !config.payFemale) && (config.payMale || config.payFemale) && (
                       <p className="text-xs text-destructive -mt-1">Both male and female pay are required</p>
                     )}
+
+                    {/* Slots for this role */}
+                    <div>
+                      <label className="text-xs font-medium text-foreground block mb-1.5">
+                        Slots for this Role <span className="text-destructive">*</span>
+                      </label>
+                      <Input
+                        type="number"
+                        inputMode="numeric"
+                        min="1"
+                        value={config.slots}
+                        onChange={e => setRoleConfigs(prev => prev.map((c, idx) => idx === i ? { ...c, slots: e.target.value, slotsError: undefined } : c))}
+                        onBlur={e => {
+                          const n = parseInt(e.target.value);
+                          if (isNaN(n) || n < 1) {
+                            setRoleConfigs(prev => prev.map((c, idx) => idx === i ? { ...c, slots: e.target.value, slotsError: "Min 1 slot required" } : c));
+                          }
+                        }}
+                        placeholder="e.g. 4"
+                        className={`h-9 ${config.slotsError ? "border-destructive" : ""}`}
+                      />
+                      {config.slotsError && <p className="text-xs text-destructive mt-1">{config.slotsError}</p>}
+                    </div>
                   </div>
                 ))}
 
@@ -1742,7 +1791,7 @@ export default function AdminEvents() {
 
                 <button
                   type="button"
-                  onClick={() => setRoleConfigs(prev => [...prev, { gender: "both", role: "", task: "", payMale: "", payFemale: "" }])}
+                  onClick={() => setRoleConfigs(prev => [...prev, { gender: "both", role: "", task: "", payMale: "", payFemale: "", slots: "" }])}
                   className="w-full py-2.5 border border-dashed border-primary/40 text-primary rounded-xl text-sm font-medium hover:bg-primary/5 transition-colors flex items-center justify-center gap-1.5"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -1751,15 +1800,15 @@ export default function AdminEvents() {
               </div>
 
               <SectionHeading>Slots</SectionHeading>
-              <FormField control={form.control} name="totalSlots" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Total Slots</FormLabel>
-                  <FormControl>
-                    <Input type="number" inputMode="numeric" min="1" placeholder="e.g. 10" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+              <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-border/60 bg-muted/30">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Total Slots</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Auto-calculated from role slots above</p>
+                </div>
+                <span className="text-2xl font-bold text-primary">
+                  {roleConfigs.reduce((sum, c) => sum + (parseInt(c.slots) || 0), 0) || 0}
+                </span>
+              </div>
 
               <SectionHeading>Timing (IST)</SectionHeading>
 
