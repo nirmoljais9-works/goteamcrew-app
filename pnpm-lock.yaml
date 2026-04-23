@@ -169,21 +169,6 @@ importers:
       '@google-cloud/storage':
         specifier: ^7.19.0
         version: 7.19.0
-      '@types/bcryptjs':
-        specifier: ^3.0.0
-        version: 3.0.0
-      '@types/connect-pg-simple':
-        specifier: ^7.0.3
-        version: 7.0.3
-      '@types/express-session':
-        specifier: ^1.18.2
-        version: 1.18.2
-      '@types/multer':
-        specifier: ^2.1.0
-        version: 2.1.0
-      '@types/sharp':
-        specifier: ^0.32.0
-        version: 0.32.0
       '@workspace/api-zod':
         specifier: workspace:*
         version: link:../../lib/api-zod
@@ -221,6 +206,12 @@ importers:
         specifier: ^0.34.5
         version: 0.34.5
     devDependencies:
+      '@types/bcryptjs':
+        specifier: ^3.0.0
+        version: 3.0.0
+      '@types/connect-pg-simple':
+        specifier: ^7.0.3
+        version: 7.0.3
       '@types/cookie-parser':
         specifier: ^1.4.10
         version: 1.4.10(@types/express@5.0.6)
@@ -230,9 +221,18 @@ importers:
       '@types/express':
         specifier: ^5.0.6
         version: 5.0.6
+      '@types/express-session':
+        specifier: ^1.18.2
+        version: 1.18.2
+      '@types/multer':
+        specifier: ^2.1.0
+        version: 2.1.0
       '@types/node':
         specifier: 'catalog:'
         version: 25.3.5
+      '@types/sharp':
+        specifier: ^0.32.0
+        version: 0.32.0
       esbuild:
         specifier: 0.27.3
         version: 0.27.3
