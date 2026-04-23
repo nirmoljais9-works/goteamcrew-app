@@ -1,0 +1,24 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 82.29.167.84
+          username: root
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /opt/goteamcrew-app
+            git fetch origin
+            git reset --hard origin/main
+            npm install
+            pm2 restart goteamcrew --update-env
