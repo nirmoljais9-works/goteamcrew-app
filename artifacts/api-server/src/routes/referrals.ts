@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { referralsTable, crewProfilesTable, eventsTable, usersTable, shiftsTable, shiftClaimsTable } from "@workspace/db";
 import { eq, and, sql, desc, inArray } from "drizzle-orm";
+import { normalizePhotoUrl } from "../lib/objectStorage";
 
 const router: IRouter = Router();
 
@@ -192,6 +193,7 @@ router.get("/admin/referrals", requireAdmin, async (req: any, res) => {
 
     let result = rows.map(r => ({
       ...r,
+      referrerPhotoUrl: normalizePhotoUrl(r.referrerPhotoUrl),
       referredUserName: r.referredUserId ? (referredNames[r.referredUserId] || null) : null,
     }));
 
@@ -397,7 +399,7 @@ router.get("/admin/referrers/:crewProfileId/insights", requireAdmin, async (req:
     };
 
     res.json({
-      profile: { ...profile, walletBalance: parseFloat(profile.walletBalance || "0"), totalEarnings: parseFloat(profile.totalEarnings || "0") },
+      profile: { ...profile, closeUpPhotoUrl: normalizePhotoUrl(profile.closeUpPhotoUrl), walletBalance: parseFloat(profile.walletBalance || "0"), totalEarnings: parseFloat(profile.totalEarnings || "0") },
       stats,
       recentReferrals: actionableReferrals.slice(0, 10).map(r => ({
         ...r,
@@ -544,7 +546,7 @@ router.get("/admin/candidate-insight", requireAdmin, async (req: any, res) => {
     else if (attendanceStatus === "late") decisionTag = "review";
 
     res.json({
-      profile: { ...profile, totalEarnings: parseFloat(profile.totalEarnings || "0") },
+      profile: { ...profile, closeUpPhotoUrl: normalizePhotoUrl(profile.closeUpPhotoUrl), totalEarnings: parseFloat(profile.totalEarnings || "0") },
       event: {
         ...event,
         payPerDay: event.payPerDay ? parseFloat(event.payPerDay as string) : null,

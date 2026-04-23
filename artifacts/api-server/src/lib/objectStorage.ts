@@ -67,6 +67,41 @@ function createStorageClient(): Storage | null {
 
 export const objectStorageClient = createStorageClient();
 
+/**
+ * Convert a stored photo URL to a proxy-served path that the browser can load.
+ *
+ * When running in Replit, files are stored in a *private* GCS bucket
+ * (PRIVATE_OBJECT_DIR = /replit-objstore-xxx/.private).  The bucket is NOT
+ * publicly accessible, so a direct https://storage.googleapis.com/... URL
+ * will fail in the browser.  This function converts those URLs to the
+ * authenticated /api/storage/objects/... proxy route that the Express server
+ * can serve using the Replit sidecar credentials.
+ *
+ * On the production VPS (GOOGLE_APPLICATION_CREDENTIALS set), PRIVATE_OBJECT_DIR
+ * is undefined and photos are either in a public GCS bucket (return as-is) or
+ * already stored as /api/storage/... paths (also returned as-is).
+ */
+export function normalizePhotoUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  // Already a proxy path — nothing to do
+  if (url.startsWith("/api/storage/")) return url;
+  // Direct GCS URL — check if it points to the private Replit bucket
+  if (url.startsWith("https://storage.googleapis.com/")) {
+    const privateDir = process.env.PRIVATE_OBJECT_DIR;
+    if (!privateDir) return url; // production with public bucket — serve directly
+    const dirPath = privateDir.startsWith("/") ? privateDir.slice(1) : privateDir;
+    const slashIdx = dirPath.indexOf("/");
+    const bucket = slashIdx > 0 ? dirPath.slice(0, slashIdx) : dirPath;
+    const objectDirPrefix = slashIdx > 0 ? dirPath.slice(slashIdx + 1) + "/" : "";
+    const gcsPrefix = `https://storage.googleapis.com/${bucket}/${objectDirPrefix}`;
+    if (url.startsWith(gcsPrefix)) {
+      const entityId = url.slice(gcsPrefix.length);
+      return `/api/storage/objects/${entityId}`;
+    }
+  }
+  return url;
+}
+
 export class ObjectNotFoundError extends Error {
   constructor() {
     super("Object not found");
@@ -143,9 +178,11 @@ export class ObjectStorageService {
         const bucket = objectStorageClient.bucket(bucketName);
         const file = bucket.file(objectName);
         await file.save(buffer, { contentType, resumable: false });
-        const publicUrl = `https://storage.googleapis.com/${bucketName}/${objectName}`;
-        console.log("[uploadBuffer] sidecar GCS upload SUCCESS:", publicUrl);
-        return publicUrl;
+        // Replit bucket is private — return the authenticated proxy path instead
+        // of the direct GCS URL (which would 403 in the browser).
+        const proxyPath = `/api/storage/objects/uploads/${fileName}`;
+        console.log("[uploadBuffer] sidecar GCS upload SUCCESS (proxy path):", proxyPath);
+        return proxyPath;
       } catch (gcsErr: any) {
         console.error("[uploadBuffer] sidecar GCS FAILED:", gcsErr?.message);
         console.warn("[uploadBuffer] Falling back to database storage");

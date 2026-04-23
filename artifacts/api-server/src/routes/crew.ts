@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import { usersTable, crewProfilesTable, shiftClaimsTable, shiftsTable, eventsTable, paymentsTable, attendanceBreaksTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { computeCheckInStatus, computeCheckOutStatus, getISTDate } from "../lib/attendance-utils";
-import { ObjectStorageService } from "../lib/objectStorage";
+import { ObjectStorageService, normalizePhotoUrl } from "../lib/objectStorage";
 import multer from "multer";
 import path from "path";
 let sharpModule: any = null;
@@ -93,10 +93,10 @@ function buildProfileResponse(user: any, profile: any) {
     languages: profile.languages,
     height: profile.height,
     instagramUrl: profile.instagramUrl,
-    closeUpPhotoUrl: profile.closeUpPhotoUrl,
-    fullLengthPhotoUrl: profile.fullLengthPhotoUrl,
-    aadhaarCardUrl: profile.aadhaarCardUrl,
-    collegeIdUrl: profile.collegeIdUrl,
+    closeUpPhotoUrl: normalizePhotoUrl(profile.closeUpPhotoUrl),
+    fullLengthPhotoUrl: normalizePhotoUrl(profile.fullLengthPhotoUrl),
+    aadhaarCardUrl: normalizePhotoUrl(profile.aadhaarCardUrl),
+    collegeIdUrl: normalizePhotoUrl(profile.collegeIdUrl),
     skills: profile.skills,
     experience: profile.experience,
     payHolderName: profile.payHolderName,
@@ -106,10 +106,10 @@ function buildProfileResponse(user: any, profile: any) {
     payIfscCode: profile.payIfscCode,
     payUpiId: profile.payUpiId,
     panNumber: profile.panNumber,
-    panCardUrl: profile.panCardUrl,
+    panCardUrl: normalizePhotoUrl(profile.panCardUrl),
     portfolioPhotos: profile.portfolioPhotos || null,
     photoQuality: profile.photoQuality || null,
-    introVideoUrl: profile.introVideoUrl || null,
+    introVideoUrl: normalizePhotoUrl(profile.introVideoUrl) || null,
     introVideoQuality: profile.introVideoQuality || null,
     source: profile.heardAboutUs || null,
     status: user.status,

@@ -13,7 +13,7 @@ import {
 import { computeCheckInStatus, computeCheckOutStatus, getISTDate } from "../lib/attendance-utils";
 import { eq, and, count, sql, or, isNotNull, isNull, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-import { ObjectStorageService } from "../lib/objectStorage";
+import { ObjectStorageService, normalizePhotoUrl } from "../lib/objectStorage";
 
 const objectStorage = new ObjectStorageService();
 
@@ -240,6 +240,11 @@ router.get("/admin/crew", requireAdmin, async (req: any, res) => {
 
     res.json(crew.map(c => ({
       ...c,
+      closeUpPhotoUrl: normalizePhotoUrl(c.closeUpPhotoUrl),
+      fullLengthPhotoUrl: normalizePhotoUrl(c.fullLengthPhotoUrl),
+      aadhaarCardUrl: normalizePhotoUrl(c.aadhaarCardUrl),
+      collegeIdUrl: normalizePhotoUrl(c.collegeIdUrl),
+      panCardUrl: normalizePhotoUrl(c.panCardUrl),
       totalEarnings: parseFloat(c.totalEarnings || "0"),
       referredByName: referredByMap[c.userId] || null,
       referredEventName: referredEventMap[c.userId] || null,
@@ -379,7 +384,7 @@ router.get("/admin/referral-context", requireAdmin, async (req: any, res) => {
         endDate: referral.eventEndDate,
         role: shift?.role || null,
       },
-      referrer: referrer ? { ...referrer, totalEarnings: parseFloat(referrer.totalEarnings || "0"), stats: referralStats } : null,
+      referrer: referrer ? { ...referrer, closeUpPhotoUrl: normalizePhotoUrl(referrer.closeUpPhotoUrl), totalEarnings: parseFloat(referrer.totalEarnings || "0"), stats: referralStats } : null,
     });
   } catch (err) {
     console.error("[referral-context]", err);
@@ -465,7 +470,16 @@ router.get("/admin/crew/:id", requireAdmin, async (req: any, res) => {
     if (!profile) return res.status(404).json({ error: "Crew member not found" });
 
     console.log(`[admin/crew/${crewId}] source:`, profile.source);
-    res.json({ ...profile, totalEarnings: parseFloat(profile.totalEarnings || "0") });
+    res.json({
+      ...profile,
+      closeUpPhotoUrl: normalizePhotoUrl(profile.closeUpPhotoUrl),
+      fullLengthPhotoUrl: normalizePhotoUrl(profile.fullLengthPhotoUrl),
+      aadhaarCardUrl: normalizePhotoUrl(profile.aadhaarCardUrl),
+      collegeIdUrl: normalizePhotoUrl(profile.collegeIdUrl),
+      panCardUrl: normalizePhotoUrl(profile.panCardUrl),
+      introVideoUrl: normalizePhotoUrl(profile.introVideoUrl),
+      totalEarnings: parseFloat(profile.totalEarnings || "0"),
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
@@ -869,6 +883,7 @@ router.get("/admin/shift-claims", requireAdmin, async (req: any, res) => {
       const refInfo = referralMap[refKey] || null;
       return {
         ...c,
+        crewPhotoUrl: normalizePhotoUrl(c.crewPhotoUrl),
         totalPay: parseFloat(c.totalPay || "0"),
         eventPayPerDay: parseFloat(c.eventPayPerDay || "0"),
         approvedPay: c.approvedPay !== null && c.approvedPay !== undefined ? parseFloat(c.approvedPay) : null,
