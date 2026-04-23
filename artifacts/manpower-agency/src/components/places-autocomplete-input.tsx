@@ -17,7 +17,12 @@ type Prediction = {
 };
 
 type Props = {
-  defaultValue?: string;
+  /**
+   * Reactive value — the input always reflects this.
+   * When the parent resets the form (edit mode), this changes and the
+   * input updates automatically via a useEffect.
+   */
+  value?: string;
   onPlaceSelected: (place: PlaceResult) => void;
   onInputChange?: (value: string, isFromPlaceSelection?: boolean) => void;
   placeholder?: string;
@@ -25,7 +30,7 @@ type Props = {
 };
 
 export function PlacesAutocompleteInput({
-  defaultValue = "",
+  value = "",
   onPlaceSelected,
   onInputChange,
   placeholder = "Search venue, shop, hall, restaurant…",
@@ -35,22 +40,35 @@ export function PlacesAutocompleteInput({
   const containerRef = useRef<HTMLDivElement>(null);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [inputValue, setInputValue] = useState(defaultValue);
+  const [inputValue, setInputValue] = useState(value);
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeIndexRef = useRef(-1);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Track whether the user is currently interacting with the field.
+  // While they type we suppress external syncs so we don't reset mid-input.
+  const userTypingRef = useRef(false);
 
   const onPlaceSelectedRef = useRef(onPlaceSelected);
   onPlaceSelectedRef.current = onPlaceSelected;
   const onInputChangeRef = useRef(onInputChange);
   onInputChangeRef.current = onInputChange;
 
+  // Sync internal state when the parent value changes (e.g. form.reset in edit mode).
+  // Skip if the user is actively typing to avoid cursor-jump.
+  useEffect(() => {
+    if (!userTypingRef.current) {
+      setInputValue(value);
+    }
+  }, [value]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent | TouchEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setShowDropdown(false);
+        userTypingRef.current = false;
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -97,7 +115,7 @@ export function PlacesAutocompleteInput({
       );
       setShowDropdown(true);
     } catch (err: any) {
-      if (err.name === "AbortError") return; // cancelled — don't clear loading yet
+      if (err.name === "AbortError") return;
       setPredictions([]);
       setShowDropdown(false);
     } finally {
@@ -107,6 +125,7 @@ export function PlacesAutocompleteInput({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
+    userTypingRef.current = true;
     setInputValue(val);
     onInputChangeRef.current?.(val, false);
 
@@ -120,7 +139,13 @@ export function PlacesAutocompleteInput({
     debounceRef.current = setTimeout(() => fetchPredictions(val), 300);
   };
 
+  const handleBlur = () => {
+    // Small delay so click-on-dropdown still fires before we clear the flag
+    setTimeout(() => { userTypingRef.current = false; }, 200);
+  };
+
   const selectPrediction = useCallback(async (prediction: Prediction) => {
+    userTypingRef.current = false;
     setInputValue(prediction.description);
     setShowDropdown(false);
     setPredictions([]);
@@ -154,6 +179,7 @@ export function PlacesAutocompleteInput({
         type="text"
         value={inputValue}
         onChange={handleInputChange}
+        onBlur={handleBlur}
         onFocus={() => {
           if (predictions.length > 0) setShowDropdown(true);
         }}

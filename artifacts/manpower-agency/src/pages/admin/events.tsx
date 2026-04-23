@@ -1530,14 +1530,9 @@ export default function AdminEvents() {
                     Location / Venue
                   </FormLabel>
                   <FormControl>
-                    {/*
-                      key forces a full re-mount when the dialog opens/closes or
-                      switches between create vs edit — this sets the correct defaultValue.
-                      The input is UNCONTROLLED after mount so typing never blurs the cursor.
-                    */}
                     <PlacesAutocompleteInput
-                      key={`loc-${editingEvent?.id ?? "new"}-${open}`}
-                      defaultValue={field.value}
+                      key={`loc-${editingEvent?.id ?? "new"}`}
+                      value={field.value}
                       placeholder="Search venue, shop, hall, restaurant…"
                       onInputChange={(val, isFromPlaceSelection) => {
                         // Keep form field in sync (does not re-render the input)
