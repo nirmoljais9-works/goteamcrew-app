@@ -514,90 +514,21 @@ export default function AdminEvents() {
     }
   }, [open]);
 
-  useEffect(() => {
-    if (editingEvent && open) {
-      const vals = eventToFormValues(editingEvent);
-      form.reset(vals);
-      setIsMultiDay(!!vals.startDate && !!vals.endDate && vals.startDate !== vals.endDate);
-      setTimePreset("custom");
-      setRoleConfigError("");
+  // Helper: convert any stored pay value to a normalised "min-max" range string
+  // Used when populating roleConfigs for an edit.
+  const toPayStr = useCallback((v: any, vMax?: any): string => {
+    if (v == null || v === "") return "";
+    const s = String(v).trim();
+    if (s.includes("-")) return normalizePayInput(s);
+    return normalizePayInput(buildPayRange(s, vMax != null ? String(vMax) : null));
+  }, []);
 
-      // Synthesize roleConfigs from saved data or legacy fields
-      // toPayStr: convert any pay value to a safe string for the text input
-      //   - New format "1000-4000" → preserved as-is
-      //   - Old range like "2500–6000" → normalised to "2500-6000"
-      //   - Single number → "2500"
-      const toPayStr = (v: any, vMax?: any): string => {
-        if (v == null || v === "") return "";
-        const s = String(v).trim();
-        // If the stored value is already a range string (e.g. "1000-4000"), normalise it
-        // directly — don't pass through buildPayRange which uses parseFloat and loses the max.
-        if (s.includes("-")) return normalizePayInput(s);
-        // Single value: combine with optional separate max column
-        return normalizePayInput(buildPayRange(s, vMax != null ? String(vMax) : null));
-      };
-      const toPayFields = (c: any): { payMale: string; payFemale: string } => {
-        // Old configs may have minPay/maxPay; new ones have payMale/payFemale (range strings or plain numbers)
-        const legacyPay = c.minPay != null ? toPayStr(c.minPay, c.maxPay) : toPayStr(c.pay);
-        const pm = c.payMale != null ? toPayStr(c.payMale) : (c.gender !== "female" ? legacyPay : "");
-        const pf = c.payFemale != null ? toPayStr(c.payFemale) : (c.gender !== "male" ? (c.minPay != null || c.pay != null ? legacyPay : "") : "");
-        return { payMale: pm, payFemale: pf };
-      };
-
-      if (editingEvent.roleConfigs) {
-        try {
-          const parsed = JSON.parse(editingEvent.roleConfigs);
-          // Backward compat: if no per-role slots, distribute totalSlots equally
-          const legacyTotal = editingEvent.totalSlots ?? 10;
-          const roleCount = parsed.length || 1;
-          const perRoleFallback = Math.max(1, Math.round(legacyTotal / roleCount));
-          setRoleConfigs(parsed.map((c: any) => ({
-            gender: c.gender || "both",
-            role: c.role || "",
-            task: c.task || "",
-            slots: c.slots != null ? String(c.slots) : String(perRoleFallback),
-            ...toPayFields(c),
-          })));
-        } catch {
-          const pm = buildPayRange(editingEvent.payMale, (editingEvent as any).payMaleMax);
-          const pf = buildPayRange(editingEvent.payFemale, (editingEvent as any).payFemaleMax) || buildPayRange(editingEvent.payPerDay, null);
-          setRoleConfigs([{ gender: "both", role: editingEvent.role || "", task: editingEvent.workTask || "", payMale: pm, payFemale: pf, slots: String(editingEvent.totalSlots ?? 10) }]);
-        }
-      } else if (editingEvent.payFemale && editingEvent.payMale) {
-        setRoleConfigs([{
-          gender: "both",
-          role: editingEvent.role || "",
-          task: editingEvent.workTask || "",
-          payMale: buildPayRange(editingEvent.payMale, (editingEvent as any).payMaleMax),
-          payFemale: buildPayRange(editingEvent.payFemale, (editingEvent as any).payFemaleMax),
-          slots: String(editingEvent.totalSlots ?? 10),
-        }]);
-      } else if (editingEvent.payFemale) {
-        setRoleConfigs([{ gender: "female", role: editingEvent.role || "", task: editingEvent.workTask || "", payMale: "", payFemale: buildPayRange(editingEvent.payFemale, (editingEvent as any).payFemaleMax), slots: String(editingEvent.totalSlots ?? 10) }]);
-      } else if (editingEvent.payMale) {
-        setRoleConfigs([{ gender: "male", role: editingEvent.role || "", task: editingEvent.workTask || "", payMale: buildPayRange(editingEvent.payMale, (editingEvent as any).payMaleMax), payFemale: "", slots: String(editingEvent.totalSlots ?? 10) }]);
-      } else {
-        const p = buildPayRange(editingEvent.payPerDay, null);
-        const g = (editingEvent.genderRequired || "both") as "male" | "female" | "both";
-        setRoleConfigs([{ gender: g, role: editingEvent.role || "", task: editingEvent.workTask || "", payMale: p, payFemale: p, slots: String(editingEvent.totalSlots ?? 10) }]);
-      }
-
-      if (editingEvent.latitude && editingEvent.longitude) {
-        setGeoStatus("success");
-        setGeoMessage(`📍 Saved (${parseFloat(editingEvent.latitude).toFixed(4)}, ${parseFloat(editingEvent.longitude).toFixed(4)})`);
-      } else {
-        setGeoStatus("pending");
-        setGeoMessage("⚠️ No coordinates saved. Select from dropdown to enable GPS validation.");
-      }
-    } else if (!editingEvent && open) {
-      setGeoStatus("idle");
-      setGeoMessage("");
-      try {
-        const draft = localStorage.getItem(DRAFT_KEY);
-        if (draft) setHasDraft(true);
-      } catch {}
-    }
-  }, [editingEvent, open]);
+  const toPayFields = useCallback((c: any): { payMale: string; payFemale: string } => {
+    const legacyPay = c.minPay != null ? toPayStr(c.minPay, c.maxPay) : toPayStr(c.pay);
+    const pm = c.payMale != null ? toPayStr(c.payMale) : (c.gender !== "female" ? legacyPay : "");
+    const pf = c.payFemale != null ? toPayStr(c.payFemale) : (c.gender !== "male" ? (c.minPay != null || c.pay != null ? legacyPay : "") : "");
+    return { payMale: pm, payFemale: pf };
+  }, [toPayStr]);
 
   // Auto-save to localStorage (debounced 800 ms) — only when creating, not editing
   useEffect(() => {
@@ -674,8 +605,77 @@ export default function AdminEvents() {
     setHasDraft(false);
   };
 
-  const handleOpenCreate = () => { setEditingEvent(null); setOpen(true); };
-  const handleOpenEdit = (ev: any) => { setEditingEvent(ev); setOpen(true); };
+  const handleOpenCreate = () => {
+    form.reset(BLANK);
+    setEditingEvent(null);
+    setRoleConfigs([{ gender: "both", role: "", task: "", payMale: "", payFemale: "", slots: "" }]);
+    setRoleConfigError("");
+    setIsMultiDay(false);
+    setTimePreset("custom");
+    setGeoStatus("idle");
+    setGeoMessage("");
+    try {
+      const draft = localStorage.getItem(DRAFT_KEY);
+      if (draft) setHasDraft(true);
+    } catch {}
+    setOpen(true);
+  };
+
+  const handleOpenEdit = (ev: any) => {
+    const vals = eventToFormValues(ev);
+    form.reset(vals);
+    setEditingEvent(ev);
+    setIsMultiDay(!!vals.startDate && !!vals.endDate && vals.startDate !== vals.endDate);
+    setTimePreset("custom");
+    setRoleConfigError("");
+
+    if (ev.roleConfigs) {
+      try {
+        const parsed = JSON.parse(ev.roleConfigs);
+        const legacyTotal = ev.totalSlots ?? 10;
+        const roleCount = parsed.length || 1;
+        const perRoleFallback = Math.max(1, Math.round(legacyTotal / roleCount));
+        setRoleConfigs(parsed.map((c: any) => ({
+          gender: c.gender || "both",
+          role: c.role || "",
+          task: c.task || "",
+          slots: c.slots != null ? String(c.slots) : String(perRoleFallback),
+          ...toPayFields(c),
+        })));
+      } catch {
+        const pm = buildPayRange(ev.payMale, ev.payMaleMax);
+        const pf = buildPayRange(ev.payFemale, ev.payFemaleMax) || buildPayRange(ev.payPerDay, null);
+        setRoleConfigs([{ gender: "both", role: ev.role || "", task: ev.workTask || "", payMale: pm, payFemale: pf, slots: String(ev.totalSlots ?? 10) }]);
+      }
+    } else if (ev.payFemale && ev.payMale) {
+      setRoleConfigs([{
+        gender: "both",
+        role: ev.role || "",
+        task: ev.workTask || "",
+        payMale: buildPayRange(ev.payMale, ev.payMaleMax),
+        payFemale: buildPayRange(ev.payFemale, ev.payFemaleMax),
+        slots: String(ev.totalSlots ?? 10),
+      }]);
+    } else if (ev.payFemale) {
+      setRoleConfigs([{ gender: "female", role: ev.role || "", task: ev.workTask || "", payMale: "", payFemale: buildPayRange(ev.payFemale, ev.payFemaleMax), slots: String(ev.totalSlots ?? 10) }]);
+    } else if (ev.payMale) {
+      setRoleConfigs([{ gender: "male", role: ev.role || "", task: ev.workTask || "", payMale: buildPayRange(ev.payMale, ev.payMaleMax), payFemale: "", slots: String(ev.totalSlots ?? 10) }]);
+    } else {
+      const p = buildPayRange(ev.payPerDay, null);
+      const g = (ev.genderRequired || "both") as "male" | "female" | "both";
+      setRoleConfigs([{ gender: g, role: ev.role || "", task: ev.workTask || "", payMale: p, payFemale: p, slots: String(ev.totalSlots ?? 10) }]);
+    }
+
+    if (ev.latitude && ev.longitude) {
+      setGeoStatus("success");
+      setGeoMessage(`📍 Saved (${parseFloat(ev.latitude).toFixed(4)}, ${parseFloat(ev.longitude).toFixed(4)})`);
+    } else {
+      setGeoStatus("pending");
+      setGeoMessage("⚠️ No coordinates saved. Select from dropdown to enable GPS validation.");
+    }
+
+    setOpen(true);
+  };
   const handleDelete = (ev: any) => setDeleteModalEvent({ id: ev.id, title: ev.title });
 
   const handleArchive = async () => {
