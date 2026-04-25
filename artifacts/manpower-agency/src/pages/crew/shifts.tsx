@@ -1,7 +1,7 @@
 import { useGetShifts, useGetCrewProfile } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
 import { format, differenceInCalendarDays } from "date-fns";
-import { MapPin, CalendarDays, Users, ShieldX, Timer, Gift, Zap, IndianRupee } from "lucide-react";
+import { MapPin, CalendarDays, ShieldX, Timer, Gift } from "lucide-react";
 import { motion } from "framer-motion";
 
 function isGenderEligible(profileGender: string | null | undefined, eventGenderRequired: string | null | undefined): boolean {
@@ -17,173 +17,67 @@ function getGenderLabel(gender: string | null | undefined): string {
   return `${gender} Only`;
 }
 
-type RoleConfig = {
-  gender: string;
-  role: string;
-  task?: string;
-  slots?: number;
-  // new format
-  payMale?: string | null;
-  payFemale?: string | null;
-  // legacy format
-  minPay?: string | number;
-  maxPay?: string | number;
-  pay?: string | number;
-};
+/**
+ * formatLocation — extracts "Venue, City" from a full Google Maps address.
+ *
+ * Examples:
+ *   "India Expo Mart, Greater Noida, Uttar Pradesh, India" → "India Expo Mart, Greater Noida"
+ *   "Connaught Place, New Delhi, Delhi, India"             → "Connaught Place, New Delhi"
+ *   "Mumbai, Maharashtra, India"                           → "Mumbai"
+ *   "Expo Mart Greater Noida, UP"                         → "Greater Noida" (too long, city only)
+ *
+ * If the result exceeds 30 chars, returns city only.
+ */
+function formatLocation(loc: string | null | undefined): string {
+  if (!loc || loc.trim() === "" || loc === "TBD") return "Location TBD";
 
-function parseRoleConfigs(raw: any): RoleConfig[] {
-  if (!raw) return [];
-  try {
-    const arr = typeof raw === "string" ? JSON.parse(raw) : raw;
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
-}
+  const parts = loc.split(",").map((p) => p.trim()).filter(Boolean);
 
-/** Parse "1000" or "1000-4000" into { min, max } */
-function parsePayStr(val: any): { min: number | null; max: number | null } {
-  if (!val && val !== 0) return { min: null, max: null };
-  const s = String(val).replace(/[–—]/g, "-").trim();
-  const parts = s.split("-").map((p: string) => p.trim()).filter(Boolean);
-  const min = parseFloat(parts[0]);
-  const max = parts[1] ? parseFloat(parts[1]) : NaN;
-  return {
-    min: !isNaN(min) ? min : null,
-    max: !isNaN(max) ? max : !isNaN(min) ? min : null,
-  };
-}
-
-/** Extract pay range from a single role config, respecting gender preference */
-function getRolePayRange(c: RoleConfig, profileGender?: string): { min: number | null; max: number | null } {
-  // New format: payMale / payFemale are range strings
-  if (c.payMale || c.payFemale) {
-    if (profileGender === "male" && c.payMale) return parsePayStr(c.payMale);
-    if (profileGender === "female" && c.payFemale) return parsePayStr(c.payFemale);
-    // No gender preference or "both" — use widest range
-    const mR = c.payMale ? parsePayStr(c.payMale) : { min: null, max: null };
-    const fR = c.payFemale ? parsePayStr(c.payFemale) : { min: null, max: null };
-    const mins = [mR.min, fR.min].filter((v): v is number => v !== null);
-    const maxs = [mR.max, fR.max].filter((v): v is number => v !== null);
-    return {
-      min: mins.length ? Math.min(...mins) : null,
-      max: maxs.length ? Math.max(...maxs) : null,
-    };
-  }
-  // Legacy format: minPay / maxPay / pay
-  const lMin = parsePayStr(c.minPay ?? c.pay);
-  const lMax = parsePayStr(c.maxPay ?? c.pay);
-  return { min: lMin.min, max: lMax.max ?? lMin.max };
-}
-
-/** Friendly pay display for a range */
-function fmtPay(min: number | null, max: number | null): string | null {
-  if (min === null && max === null) return null;
-  const lo = min ?? max!;
-  const hi = max ?? min!;
-  if (lo === hi) return `₹${lo.toLocaleString("en-IN")}`;
-  return `₹${lo.toLocaleString("en-IN")}–₹${hi.toLocaleString("en-IN")}`;
-}
-
-/** Shorten a long venue address to the most meaningful part */
-function shortenLocation(loc: string | null | undefined): string {
-  if (!loc || loc === "TBD") return "Location TBD";
-  const parts = loc.split(",").map((p: string) => p.trim()).filter(Boolean);
-  if (parts.length >= 3) {
-    // Return last 2 comma-parts (usually area + city)
-    return parts.slice(-2).join(", ");
-  }
-  if (parts.length === 2) return parts.join(", ");
-  return loc.length > 32 ? loc.slice(0, 30) + "…" : loc;
-}
-
-interface CardData {
-  roles: string[];
-  overallMin: number | null;
-  overallMax: number | null;
-  genderRequired: string | null;
-  rolePayRows: Array<{ role: string; payStr: string | null }>;
-  roleSlotsRows: Array<{ role: string; slots: number }>;
-}
-
-function getCardData(s: any, profile: any): CardData {
-  const profileGender = (profile?.gender || "").toLowerCase();
-  const configs = parseRoleConfigs(s.eventRoleConfigs);
-
-  if (configs.length > 0) {
-    const relevant = configs.filter(c => {
-      if (!c.gender || c.gender === "both") return true;
-      if (!profileGender) return true;
-      return c.gender.toLowerCase() === profileGender;
-    });
-    const display = relevant.length > 0 ? relevant : configs;
-
-    const roles = [...new Set(configs.map(c => c.role).filter(Boolean))];
-
-    // Overall pay range (all relevant roles)
-    const allMins: number[] = [];
-    const allMaxs: number[] = [];
-    for (const c of display) {
-      const r = getRolePayRange(c, profileGender);
-      if (r.min !== null) allMins.push(r.min);
-      if (r.max !== null) allMaxs.push(r.max);
-    }
-    const overallMin = allMins.length ? Math.min(...allMins) : null;
-    const overallMax = allMaxs.length ? Math.max(...allMaxs) : null;
-
-    // Per-role pay rows (all configs, grouped by role)
-    const seenRoles = new Set<string>();
-    const rolePayRows: Array<{ role: string; payStr: string | null }> = [];
-    for (const c of configs) {
-      if (!c.role || seenRoles.has(c.role)) continue;
-      seenRoles.add(c.role);
-      const r = getRolePayRange(c, profileGender);
-      rolePayRows.push({ role: c.role, payStr: fmtPay(r.min, r.max) });
-    }
-
-    // Per-role slot rows
-    const roleSlotsRows: Array<{ role: string; slots: number }> = [];
-    for (const c of configs) {
-      if (!c.role || !c.slots || c.slots <= 0) continue;
-      const existing = roleSlotsRows.find(r => r.role === c.role);
-      if (existing) {
-        existing.slots += c.slots;
-      } else {
-        roleSlotsRows.push({ role: c.role, slots: c.slots });
-      }
-    }
-
-    const genders = [...new Set(configs.map(c => c.gender?.toLowerCase()).filter(Boolean))];
-    const genderRequired = genders.length === 1 && genders[0] !== "both" ? genders[0] : null;
-
-    return { roles, overallMin, overallMax, genderRequired, rolePayRows, roleSlotsRows };
+  if (parts.length === 1) {
+    const s = parts[0];
+    return s.length > 30 ? s.slice(0, 28) + "…" : s;
   }
 
-  // Fallback to legacy shift-level fields
-  const legacyRole = s.eventRole || s.role;
-  const pFemMin = s.eventPayFemale != null ? parseFloat(s.eventPayFemale) : null;
-  const pFemMax = s.eventPayFemaleMax != null ? parseFloat(s.eventPayFemaleMax) : null;
-  const pMalMin = s.eventPayMale != null ? parseFloat(s.eventPayMale) : null;
-  const pMalMax = s.eventPayMaleMax != null ? parseFloat(s.eventPayMaleMax) : null;
-  const pBase  = s.eventPayPerDay != null ? parseFloat(s.eventPayPerDay) : null;
+  const venue = parts[0];
 
-  let lo: number | null = pBase;
-  let hi: number | null = null;
-  if (profileGender === "female" && pFemMin !== null) { lo = pFemMin; hi = pFemMax !== pFemMin ? pFemMax : null; }
-  else if (profileGender === "male" && pMalMin !== null) { lo = pMalMin; hi = pMalMax !== pMalMin ? pMalMax : null; }
+  // For Indian addresses the typical structure is:
+  //   Venue, [Area,] City, State, Country
+  // City is therefore 3rd from end for 4+ parts, or 2nd part for 2–3 parts.
+  let city: string;
+  if (parts.length >= 4) {
+    city = parts[parts.length - 3];
+  } else if (parts.length === 3) {
+    city = parts[1];
+  } else {
+    city = parts[1];
+  }
 
-  const allVals: number[] = [pBase, pFemMin, pFemMax, pMalMin, pMalMax].filter((v): v is number => v !== null);
-  const overallMin = allVals.length ? Math.min(...allVals) : lo;
-  const overallMax = allVals.length ? Math.max(...allVals) : hi;
+  if (venue.toLowerCase() === city.toLowerCase()) {
+    return venue.length > 30 ? venue.slice(0, 28) + "…" : venue;
+  }
 
-  return {
-    roles: legacyRole ? [legacyRole] : [],
-    overallMin,
-    overallMax,
-    genderRequired: s.eventGenderRequired || s.genderPreference || null,
-    rolePayRows: [],
-    roleSlotsRows: [],
-  };
+  const combined = `${venue}, ${city}`;
+  if (combined.length > 30) {
+    return city.length > 30 ? city.slice(0, 28) + "…" : city;
+  }
+  return combined;
+}
+
+/** Deterministic gradient per event title for the card banner */
+const GRADIENTS = [
+  "from-violet-500 to-indigo-600",
+  "from-rose-500 to-pink-600",
+  "from-amber-500 to-orange-600",
+  "from-emerald-500 to-teal-600",
+  "from-sky-500 to-blue-600",
+  "from-fuchsia-500 to-purple-600",
+];
+
+function getGradient(title: string | undefined): string {
+  if (!title) return GRADIENTS[0];
+  let hash = 0;
+  for (let i = 0; i < title.length; i++) hash = (hash * 31 + title.charCodeAt(i)) | 0;
+  return GRADIENTS[Math.abs(hash) % GRADIENTS.length];
 }
 
 export default function BrowseShifts() {
@@ -265,32 +159,20 @@ export default function BrowseShifts() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {openShifts.map((shift, i) => {
             const s = shift as any;
-            const { roles, overallMin, overallMax, genderRequired: derivedGender, rolePayRows, roleSlotsRows } = getCardData(s, p);
-            const gender = derivedGender || s.eventGenderRequired || s.genderPreference;
+            const gender = s.eventGenderRequired || s.genderPreference;
             const genderBoth = !gender || gender === "both" || gender === "any";
             const eligible = isGenderEligible(profileGender, gender);
-            const spotsLeft = Math.max(0, (shift.spotsTotal || 0) - (shift.spotsFilled || 0));
-            const isFull = spotsLeft <= 0;
-            const isUrgent = !isFull && spotsLeft <= 2;
             const referralReward = s.eventReferralReward ? parseFloat(s.eventReferralReward) : null;
             const eventStart = s.eventStartDate || shift.startTime;
             const referralOpen = eventStart ? new Date() < new Date(eventStart) : true;
 
-            // Event duration in days
             const eventDays = (() => {
               if (s.eventStartDate && s.eventEndDate) {
-                const diff = differenceInCalendarDays(new Date(s.eventEndDate), new Date(s.eventStartDate));
-                return diff + 1;
+                return differenceInCalendarDays(new Date(s.eventEndDate), new Date(s.eventStartDate)) + 1;
               }
               return 1;
             })();
 
-            // Max total earnings = eventDays × overallMax
-            const maxEarnings = overallMax !== null && eventDays > 1
-              ? overallMax * eventDays
-              : null;
-
-            // Date label
             const dateLabel = (() => {
               if (s.eventStartDate && s.eventEndDate) {
                 const sd = new Date(s.eventStartDate);
@@ -303,16 +185,13 @@ export default function BrowseShifts() {
               return format(new Date(shift.startTime), "EEE, MMM d");
             })();
 
-            // Pay label (headline)
-            const payLabel = fmtPay(overallMin, overallMax);
-            const hasPayRange = overallMin !== null && overallMax !== null && overallMin !== overallMax;
-
-            // Multiple role-pay rows worth showing?
-            const showRolePayBreakdown = rolePayRows.length > 1 && rolePayRows.some(r => r.payStr);
-            const showRoleSlots = roleSlotsRows.length > 0;
-
-            // Short location
-            const shortLocation = shortenLocation(shift.eventLocation);
+            const location = formatLocation(shift.eventLocation);
+            const gradient = getGradient(shift.eventTitle);
+            const initials = (shift.eventTitle || "E")
+              .split(" ")
+              .slice(0, 2)
+              .map((w: string) => w[0]?.toUpperCase() ?? "")
+              .join("");
 
             return (
               <motion.div
@@ -321,183 +200,79 @@ export default function BrowseShifts() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
                 onClick={() => navigate(`/shifts/${shift.id}`)}
-                className={`group bg-white rounded-2xl border shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col overflow-hidden ${
-                  eligible ? "border-slate-200" : "border-violet-200 opacity-90"
+                className={`group bg-white rounded-2xl border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-200 cursor-pointer flex flex-col overflow-hidden ${
+                  eligible ? "border-slate-200" : "border-violet-200"
                 }`}
               >
-                {/* Top gradient accent */}
-                <div className="h-1 bg-gradient-to-r from-primary via-violet-500 to-indigo-400" />
+                {/* Event image / gradient banner */}
+                <div className={`relative h-28 bg-gradient-to-br ${gradient} flex items-center justify-center overflow-hidden`}>
+                  {/* Decorative circles */}
+                  <div className="absolute -top-4 -right-4 w-24 h-24 rounded-full bg-white/10" />
+                  <div className="absolute -bottom-6 -left-4 w-28 h-28 rounded-full bg-white/10" />
 
-                {/* Not eligible banner */}
-                {!eligible && (
-                  <div className="bg-violet-50 px-4 py-2 flex items-center gap-2">
-                    <span className="text-[11px] font-semibold text-violet-700">
+                  {/* Initials */}
+                  <span className="relative z-10 text-4xl font-black text-white/40 select-none tracking-tight">
+                    {initials}
+                  </span>
+
+                  {/* Not eligible ribbon */}
+                  {!eligible && (
+                    <div className="absolute top-2.5 left-3 bg-white/90 backdrop-blur-sm text-violet-700 text-[10px] font-bold px-2.5 py-1 rounded-full">
                       {getGenderLabel(gender)}
-                      {referralOpen
-                        ? <> · You can refer &amp; earn{referralReward ? ` ₹${referralReward.toLocaleString("en-IN")}` : ""}</>
-                        : " · Referral closed"}
-                    </span>
-                  </div>
-                )}
+                    </div>
+                  )}
+
+                  {/* Multi-day pill */}
+                  {eventDays > 1 && (
+                    <div className="absolute top-2.5 right-3 bg-black/30 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+                      {eventDays} days
+                    </div>
+                  )}
+                </div>
 
                 {/* Card body */}
-                <div className="p-5 flex-1 space-y-3">
-
-                  {/* Role tags */}
-                  {roles.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {roles.map(r => (
-                        <span key={r} className="text-[11px] font-bold uppercase tracking-widest text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full leading-none">
-                          {r}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                <div className="p-4 flex-1 flex flex-col gap-2.5">
 
                   {/* Event title */}
-                  <h3 className="text-[17px] font-bold text-foreground leading-snug line-clamp-2">
+                  <h3 className="text-[16px] font-bold text-foreground leading-snug line-clamp-2">
                     {shift.eventTitle}
                   </h3>
-
-                  {/* Earnings highlight (only for multi-day events) */}
-                  {maxEarnings !== null && (
-                    <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
-                      <span className="text-lg">🔥</span>
-                      <span className="text-sm font-bold text-emerald-800">
-                        Earn up to ₹{maxEarnings.toLocaleString("en-IN")}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Pay range headline */}
-                  {payLabel && (
-                    <div className="flex items-center gap-1.5">
-                      <IndianRupee className="w-4 h-4 text-slate-400 shrink-0" />
-                      <span className="text-[15px] font-bold text-foreground">
-                        {payLabel}
-                        <span className="text-xs font-normal text-muted-foreground ml-1">/day</span>
-                      </span>
-                    </div>
-                  )}
 
                   {/* Location */}
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                    <span className="line-clamp-1">{shortLocation}</span>
+                    <span className="line-clamp-1">{location}</span>
                   </div>
 
-                  {/* Date + duration */}
+                  {/* Date */}
                   <div className="flex items-center gap-1.5 text-sm text-slate-600 font-medium">
                     <CalendarDays className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                    <span>
-                      {dateLabel}
-                      {eventDays > 1 && (
-                        <span className="ml-1.5 text-[11px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">
-                          {eventDays} days
-                        </span>
-                      )}
-                    </span>
+                    <span>{dateLabel}</span>
                   </div>
 
-                  {/* Role-wise pay breakdown */}
-                  {showRolePayBreakdown && (
-                    <div className="bg-slate-50 rounded-xl px-3 py-2 space-y-1">
-                      {rolePayRows.filter(r => r.payStr).map(r => (
-                        <div key={r.role} className="flex items-center justify-between">
-                          <span className="text-[11px] font-semibold text-slate-500">{r.role}</span>
-                          <span className="text-[11px] font-bold text-slate-700">{r.payStr}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Role-wise slots */}
-                  {showRoleSlots && (
-                    <div className={`rounded-xl px-3 py-2 space-y-1 ${isFull ? "bg-red-50" : "bg-slate-50"}`}>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Openings</p>
-                      {roleSlotsRows.map(r => (
-                        <div key={r.role} className="flex items-center justify-between">
-                          <span className="text-[11px] font-semibold text-slate-500">{r.role}</span>
-                          <span className={`text-[11px] font-bold ${isFull ? "text-red-500" : "text-indigo-600"}`}>
-                            {r.slots} slot{r.slots !== 1 ? "s" : ""}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Badges row */}
-                  <div className="flex flex-wrap gap-1.5">
-                    {/* Urgency / spots */}
-                    {isFull ? (
-                      <span className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-red-50 text-red-600">
-                        <Users className="w-3 h-3" /> Full
-                      </span>
-                    ) : isUrgent ? (
-                      <span className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                        <Zap className="w-3 h-3" />
-                        Only {spotsLeft} spot{spotsLeft !== 1 ? "s" : ""} left
-                      </span>
-                    ) : !showRoleSlots ? (
-                      <span className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
-                        <Users className="w-3 h-3" /> {spotsLeft} spots left
-                      </span>
-                    ) : null}
-
-                    {/* Gender restriction */}
-                    {!genderBoth && gender && (
-                      <span className={`flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full ${
-                        eligible ? "bg-violet-50 text-violet-700" : "bg-violet-100 text-violet-800"
-                      } capitalize`}>
-                        {gender.toLowerCase() === "male" ? (
-                          <><span className="leading-none">🚹</span>Male Only</>
-                        ) : gender.toLowerCase() === "female" ? (
-                          <><span className="text-sm font-bold leading-none">♀</span>Female Only</>
-                        ) : `${gender} Only`}
-                      </span>
-                    )}
-
-                    {/* Food */}
-                    {s.eventFoodProvided && (
-                      <span className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">
-                        🍽 {s.eventMealsProvided ? (() => {
-                          const map: Record<string, string> = { "1_meal": "1 Meal", "2_meals": "2 Meals", "3_meals": "3 Meals", "snacks_only": "Snacks" };
-                          return map[s.eventMealsProvided] || s.eventMealsProvided;
-                        })() : "Food Included"}
-                      </span>
-                    )}
-
-                    {/* Incentives */}
-                    {s.eventIncentives && (
-                      <span className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">
-                        🎯 Incentives
-                      </span>
-                    )}
-
-                    {/* Referral */}
-                    {referralReward && referralReward > 0 && referralOpen && (
-                      <span className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-green-50 text-green-700">
+                  {/* Referral badge */}
+                  {referralReward && referralReward > 0 && referralOpen && (
+                    <div className="mt-auto pt-1">
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-green-50 text-green-700 border border-green-100">
                         <Gift className="w-3 h-3" />
-                        ₹{referralReward.toLocaleString("en-IN")} referral
+                        ₹{referralReward.toLocaleString("en-IN")} referral bonus
                       </span>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* CTA footer */}
-                <div className="px-5 pb-4">
+                <div className="px-4 pb-4">
                   <div className="pt-3 border-t border-slate-100">
                     {eligible ? (
-                      isFull ? (
-                        <div className="flex items-center justify-center h-10 rounded-xl bg-slate-100 text-slate-400 text-sm font-semibold">
-                          All Slots Filled
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center h-10 rounded-xl bg-primary text-white text-sm font-bold gap-1.5 group-hover:bg-primary/90 transition-colors">
-                          Apply Now
-                          <span className="group-hover:translate-x-0.5 transition-transform duration-150">→</span>
-                        </div>
-                      )
+                      <div className={`flex items-center justify-center h-10 rounded-xl text-sm font-bold gap-1.5 transition-colors ${
+                        gradient.includes("violet") || gradient.includes("indigo") || gradient.includes("purple")
+                          ? "bg-primary text-white group-hover:bg-primary/90"
+                          : "bg-primary text-white group-hover:bg-primary/90"
+                      }`}>
+                        View Details
+                        <span className="group-hover:translate-x-0.5 transition-transform duration-150">→</span>
+                      </div>
                     ) : referralOpen ? (
                       <div className="flex items-center justify-center h-10 rounded-xl bg-violet-50 border border-violet-200 text-violet-700 text-sm font-semibold gap-1.5">
                         <Gift className="w-4 h-4" /> Refer &amp; Earn
