@@ -1151,31 +1151,49 @@ export default function ShiftDetail() {
           )}
         </div>
 
-        {/* Openings — per-role slot breakdown */}
+        {/* Openings — per-role slot breakdown with pay */}
         {(() => {
           const raw = s.eventRoleConfigs;
           if (!raw) return null;
           try {
             const configs: RoleConfigEntry[] = JSON.parse(raw);
-            const hasSlots = configs.some(c => c.slots != null && c.slots > 0);
-            if (!hasSlots) return null;
+            const visibleRows = configs.filter(c => c.role && c.slots != null && c.slots > 0);
+            if (!visibleRows.length) return null;
             return (
-              <div className="rounded-2xl border border-border/60 bg-card p-4">
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Openings</p>
-                <div className="space-y-2">
-                  {configs.map((c, idx) => c.role && c.slots != null && c.slots > 0 ? (
-                    <div key={idx} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Users className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="text-sm font-medium text-foreground">{c.role}</span>
-                        {c.gender && c.gender !== "both" && (
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-full capitalize">{c.gender}</span>
-                        )}
-                      </div>
-                      <span className="text-sm font-semibold text-primary">{c.slots} slot{c.slots !== 1 ? "s" : ""}</span>
-                    </div>
-                  ) : null)}
+              <div>
+                <div className="rounded-2xl border border-border/60 bg-card p-4">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Openings</p>
+                  <div className="space-y-3">
+                    {visibleRows.map((c, idx) => {
+                      const minPay = c.minPay ?? c.pay ?? null;
+                      const maxPay = c.maxPay ?? minPay;
+                      const hasPay = minPay != null;
+                      const payLabel = hasPay
+                        ? (maxPay != null && maxPay !== minPay
+                            ? `₹${Number(minPay).toLocaleString("en-IN")} – ₹${Number(maxPay).toLocaleString("en-IN")} / day`
+                            : `₹${Number(minPay).toLocaleString("en-IN")} / day`)
+                        : null;
+                      return (
+                        <div key={idx} className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                              <span className="text-sm font-medium text-foreground">{c.role}</span>
+                              {c.gender && c.gender !== "both" && (
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-full capitalize">{c.gender}</span>
+                              )}
+                            </div>
+                            {payLabel && (
+                              <p className="text-sm font-semibold text-emerald-600 pl-5 mt-0.5">{payLabel}</p>
+                            )}
+                          </div>
+                          <span className="text-sm font-semibold text-primary shrink-0 mt-0.5">{c.slots} slot{c.slots !== 1 ? "s" : ""}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
+                <p className="text-xs text-muted-foreground/70 mt-2 pl-1">ℹ️ Pay depends on profile, experience &amp; selection</p>
               </div>
             );
           } catch { return null; }
@@ -1273,49 +1291,6 @@ export default function ShiftDetail() {
           </div>
         )}
 
-        {/* Earnings card — premium daily-first */}
-        {payRange !== null && (
-          <div className="animate-in fade-in duration-500 rounded-2xl border border-violet-100 bg-gradient-to-br from-white to-violet-50/60 px-5 py-4 shadow-sm">
-
-            {/* Header row */}
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-full bg-violet-100 flex items-center justify-center shrink-0">
-                <IndianRupee className="w-3.5 h-3.5 text-violet-600" />
-              </div>
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-violet-500">Earnings</span>
-            </div>
-
-            {/* Daily pay — dominant */}
-            <p className="text-[26px] font-bold text-gray-900 tracking-tight leading-none">
-              {payRange.max && payRange.max !== payRange.min
-                ? <>₹{payRange.min.toLocaleString("en-IN")}–₹{payRange.max.toLocaleString("en-IN")}</>
-                : <>₹{payRange.min.toLocaleString("en-IN")}</>
-              }
-              <span className="text-sm font-medium text-violet-400 ml-1.5">/ day</span>
-            </p>
-
-            <div className="my-3 border-t border-violet-100" />
-
-            {/* Estimated total — secondary */}
-            {totalDays > 1 ? (
-              <p className="text-xs font-medium text-gray-500">
-                Estimated total:{" "}
-                <span className="text-gray-700 font-semibold">
-                  {payRange.max && payRange.max !== payRange.min
-                    ? <>₹{(payRange.min * totalDays).toLocaleString("en-IN")}–₹{(payRange.max * totalDays).toLocaleString("en-IN")}</>
-                    : <>₹{(payRange.min * totalDays).toLocaleString("en-IN")}</>
-                  }
-                </span>
-                <span className="text-gray-400 ml-1">for {totalDays} days</span>
-              </p>
-            ) : null}
-
-            {/* Disclaimer */}
-            <p className="text-[11px] text-gray-400 mt-1.5 leading-snug">
-              Final pay depends on experience, profile &amp; selection
-            </p>
-          </div>
-        )}
 
         {/* Dress Code */}
         {(activeDressCode || activeDressCodeImage) && (
