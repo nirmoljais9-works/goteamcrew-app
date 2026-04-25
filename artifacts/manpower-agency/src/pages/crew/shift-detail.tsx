@@ -133,8 +133,36 @@ interface RoleConfigEntry {
   task: string;
   minPay?: number;
   maxPay?: number;
-  pay?: number; // legacy
+  pay?: number;        // legacy scalar
+  payFemale?: string | number | null; // legacy "2500-7000" string or number
+  payMale?: string | number | null;
   slots?: number;
+}
+
+/** Parse "2500-7000", "2500", 2500, or null → {min, max} | null */
+function parsePayStr(val: string | number | null | undefined): { min: number; max: number } | null {
+  if (val == null) return null;
+  if (typeof val === "number") return isNaN(val) ? null : { min: val, max: val };
+  const s = String(val).trim();
+  if (!s) return null;
+  const parts = s.split("-").map(p => parseFloat(p.trim())).filter(n => !isNaN(n));
+  if (parts.length === 0) return null;
+  return { min: parts[0], max: parts[parts.length - 1] };
+}
+
+/** Resolve the pay range for a single role config entry, handling all storage formats */
+function resolveRolePayRange(c: RoleConfigEntry): { min: number; max: number } | null {
+  // New format: explicit minPay / maxPay numbers
+  if (c.minPay != null) {
+    const min = Number(c.minPay);
+    const max = c.maxPay != null ? Number(c.maxPay) : min;
+    return { min, max };
+  }
+  // Legacy scalar pay
+  if (c.pay != null) { const v = Number(c.pay); return { min: v, max: v }; }
+  // Legacy string-range: payFemale / payMale (whichever is non-null)
+  const strVal = c.payFemale ?? c.payMale ?? null;
+  return parsePayStr(strVal);
 }
 
 function getMatchingRoleConfig(s: any, profile: any): RoleConfigEntry | null {
@@ -1165,13 +1193,12 @@ export default function ShiftDetail() {
                   <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">Openings</p>
                   <div className="space-y-3">
                     {visibleRows.map((c, idx) => {
-                      const minPay = c.minPay ?? c.pay ?? null;
-                      const maxPay = c.maxPay ?? minPay;
-                      const hasPay = minPay != null;
-                      const payLabel = hasPay
-                        ? (maxPay != null && maxPay !== minPay
-                            ? `₹${Number(minPay).toLocaleString("en-IN")} – ₹${Number(maxPay).toLocaleString("en-IN")} / day`
-                            : `₹${Number(minPay).toLocaleString("en-IN")} / day`)
+                      const pay = resolveRolePayRange(c);
+                      console.log("[Openings] role:", c.role, "raw:", JSON.stringify(c), "resolved:", pay);
+                      const payLabel = pay
+                        ? (pay.max !== pay.min
+                            ? `₹${pay.min.toLocaleString("en-IN")} – ₹${pay.max.toLocaleString("en-IN")} / day`
+                            : `₹${pay.min.toLocaleString("en-IN")} / day`)
                         : null;
                       return (
                         <div key={idx} className="flex items-start justify-between gap-3">
