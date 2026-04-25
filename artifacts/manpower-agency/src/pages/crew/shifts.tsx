@@ -8,58 +8,42 @@ import { useState } from "react";
 /**
  * SmartBannerImage
  *
- * Detects orientation on load and adapts:
- *  - Portrait  → height auto (image-driven), max 240 px, blurred background fills sides
- *  - Landscape → fixed 192 px, object-cover object-center
+ * Both images are absolutely positioned inside a fixed-height container so the
+ * blur layer always has a concrete height to fill.
+ *
+ *  Portrait  → blurred bg covers full area, main image object-contain (no side gaps)
+ *  Landscape → blurred bg hidden, main image object-cover object-center
  */
 function SmartBannerImage({ src, alt }: { src: string; alt: string }) {
-  const [orientation, setOrientation] = useState<"portrait" | "landscape" | null>(null);
+  const [portrait, setPortrait] = useState<boolean | null>(null);
 
   function handleLoad(e: React.SyntheticEvent<HTMLImageElement>) {
     const img = e.currentTarget;
-    setOrientation(img.naturalHeight > img.naturalWidth ? "portrait" : "landscape");
+    setPortrait(img.naturalHeight > img.naturalWidth);
   }
 
-  const isPortrait = orientation === "portrait";
-  const isLandscape = orientation === "landscape";
-
   return (
-    <div
-      className="relative w-full overflow-hidden"
-      style={isPortrait
-        ? { maxHeight: 240 }           // portrait: container shrinks to image
-        : { height: isLandscape ? 192 : 220 } // landscape: fixed; null → default before load
-      }
-    >
-      {/* Blurred background — fills container for portrait, hidden for landscape */}
-      {!isLandscape && (
-        <img
-          src={src}
-          alt=""
-          aria-hidden
-          className="absolute inset-0 w-full h-full object-cover blur-lg brightness-75 scale-110"
-        />
-      )}
+    <div className="relative w-full overflow-hidden" style={{ height: 210 }}>
+      {/* Blurred background — always fills the container; only meaningful for portrait */}
+      <img
+        src={src}
+        alt=""
+        aria-hidden
+        className="absolute inset-0 w-full h-full object-cover blur-xl brightness-60 scale-125"
+        style={{ display: portrait === false ? "none" : undefined }}
+      />
 
-      {/* Main image */}
-      {isPortrait ? (
-        /* Portrait: let natural height drive the container, cap at 240 px */
-        <img
-          src={src}
-          alt={alt}
-          onLoad={handleLoad}
-          className="relative z-10 block w-full object-contain object-center"
-          style={{ maxHeight: 240, display: "block" }}
-        />
-      ) : (
-        /* Landscape (or not-yet-loaded): fill fixed height */
-        <img
-          src={src}
-          alt={alt}
-          onLoad={handleLoad}
-          className="w-full h-full object-cover object-center"
-        />
-      )}
+      {/* Main image — absolutely positioned so it doesn't affect container height */}
+      <img
+        src={src}
+        alt={alt}
+        onLoad={handleLoad}
+        className="absolute inset-0 w-full h-full z-10"
+        style={{
+          objectFit: portrait ? "contain" : "cover",
+          objectPosition: "center",
+        }}
+      />
 
       {/* Scrim for badge readability */}
       <div className="absolute inset-0 z-20 bg-gradient-to-t from-black/35 via-transparent to-transparent pointer-events-none" />
