@@ -5,44 +5,64 @@ import { MapPin, CalendarDays, ShieldX, Timer, Gift, Users } from "lucide-react"
 import { motion } from "framer-motion";
 import { useState } from "react";
 
-/** Renders an event cover image with smart orientation handling.
- *  - Portrait images: blurred background fill + contained image centred on top
- *  - Landscape images: cover crop anchored to top-centre so faces stay visible
+/**
+ * SmartBannerImage
+ *
+ * Detects orientation on load and adapts:
+ *  - Portrait  → height auto (image-driven), max 240 px, blurred background fills sides
+ *  - Landscape → fixed 192 px, object-cover object-center
  */
 function SmartBannerImage({ src, alt }: { src: string; alt: string }) {
-  const [portrait, setPortrait] = useState<boolean | null>(null);
+  const [orientation, setOrientation] = useState<"portrait" | "landscape" | null>(null);
 
   function handleLoad(e: React.SyntheticEvent<HTMLImageElement>) {
     const img = e.currentTarget;
-    setPortrait(img.naturalHeight > img.naturalWidth);
+    setOrientation(img.naturalHeight > img.naturalWidth ? "portrait" : "landscape");
   }
 
+  const isPortrait = orientation === "portrait";
+  const isLandscape = orientation === "landscape";
+
   return (
-    <div className="relative w-full h-full overflow-hidden">
-      {/* Blurred background — always rendered, only visible for portrait */}
-      <img
-        src={src}
-        alt=""
-        aria-hidden
-        className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl brightness-75"
-        style={{ display: portrait === false ? "none" : undefined }}
-      />
+    <div
+      className="relative w-full overflow-hidden"
+      style={isPortrait
+        ? { maxHeight: 240 }           // portrait: container shrinks to image
+        : { height: isLandscape ? 192 : 220 } // landscape: fixed; null → default before load
+      }
+    >
+      {/* Blurred background — fills container for portrait, hidden for landscape */}
+      {!isLandscape && (
+        <img
+          src={src}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 w-full h-full object-cover blur-lg brightness-75 scale-110"
+        />
+      )}
 
       {/* Main image */}
-      <img
-        src={src}
-        alt={alt}
-        onLoad={handleLoad}
-        className={[
-          "relative z-10 w-full h-full",
-          portrait
-            ? "object-contain object-center"   // portrait: full image visible
-            : "object-cover object-top",        // landscape: cover, faces at top
-        ].join(" ")}
-      />
+      {isPortrait ? (
+        /* Portrait: let natural height drive the container, cap at 240 px */
+        <img
+          src={src}
+          alt={alt}
+          onLoad={handleLoad}
+          className="relative z-10 block w-full object-contain object-center"
+          style={{ maxHeight: 240, display: "block" }}
+        />
+      ) : (
+        /* Landscape (or not-yet-loaded): fill fixed height */
+        <img
+          src={src}
+          alt={alt}
+          onLoad={handleLoad}
+          className="w-full h-full object-cover object-center"
+        />
+      )}
 
       {/* Scrim for badge readability */}
-      <div className="absolute inset-0 z-20 bg-gradient-to-t from-black/30 via-transparent to-black/10 pointer-events-none" />
+      <div className="absolute inset-0 z-20 bg-gradient-to-t from-black/35 via-transparent to-transparent pointer-events-none" />
     </div>
   );
 }
@@ -353,11 +373,11 @@ export default function BrowseShifts() {
                 }`}
               >
                 {/* Banner — image if available, gradient fallback */}
-                <div className="relative h-56 overflow-hidden rounded-t-2xl">
+                <div className="relative overflow-hidden rounded-t-2xl">
                   {s.eventImage ? (
                     <SmartBannerImage src={s.eventImage} alt={shift.eventTitle} />
                   ) : (
-                    <div className={`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
+                    <div className={`w-full h-44 bg-gradient-to-br ${gradient} flex items-center justify-center`}>
                       <div className="absolute -top-4 -right-4 w-24 h-24 rounded-full bg-white/10" />
                       <div className="absolute -bottom-6 -left-4 w-28 h-28 rounded-full bg-white/10" />
                       <span className="relative z-10 text-4xl font-black text-white/40 select-none tracking-tight">
