@@ -901,29 +901,11 @@ export default function ShiftDetail() {
         <div className="bg-card rounded-3xl border border-border/60 overflow-hidden shadow-sm">
           <div className="h-1.5 bg-gradient-to-r from-primary via-violet-500 to-indigo-400" />
           <div className="p-6">
-            <div className="space-y-3">
-              <div>
-                <span className="inline-block text-xs font-bold uppercase tracking-widest text-primary bg-primary/8 px-2.5 py-1 rounded-full mb-3">
-                  {displayRole}
-                </span>
-                <h1 className="text-2xl font-display font-bold text-foreground leading-tight">{s.eventTitle}</h1>
-                {(() => {
-                  const allPay = getAllRolesPayRange(s);
-                  if (!allPay) return null;
-                  const fmt = (n: number) => `₹${n.toLocaleString("en-IN")}`;
-                  const label = allPay.max > allPay.min
-                    ? `${fmt(allPay.min)} – ${fmt(allPay.max)} / day`
-                    : `${fmt(allPay.min)} / day`;
-                  return (
-                    <p className="mt-2 text-base font-bold text-emerald-600 flex items-center gap-1.5">
-                      💰 {label}
-                    </p>
-                  );
-                })()}
-                {workTask && (
-                  <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{workTask}</p>
-                )}
-              </div>
+            <div>
+              <h1 className="text-2xl font-display font-bold text-foreground leading-tight">{s.eventTitle}</h1>
+              {workTask && (
+                <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{workTask}</p>
+              )}
             </div>
           </div>
         </div>
@@ -1053,13 +1035,28 @@ export default function ShiftDetail() {
                     const city = s.eventCity?.trim() || "";
                     const rawLoc = s.eventLocation?.trim() || "";
                     if (!rawLoc && !city) return "—";
-                    // Extract short venue: take first segment before comma, cap at 36 chars
-                    const venueRaw = rawLoc.split(",")[0].trim();
-                    const venueShort = venueRaw.length > 36 ? venueRaw.slice(0, 33) + "…" : venueRaw;
-                    if (city && venueShort && venueShort.toLowerCase() !== city.toLowerCase()) {
-                      return `${venueShort}, ${city}`;
+                    // Road/circle suffixes to strip from end of venue name
+                    const roadSuffixes = /\s+(Cir|Circle|Rd|Road|St|Street|Ave|Avenue|Ln|Lane|Blvd|Marg|Nagar|Sector|Phase|Block|Wing|Tower)\s*$/i;
+                    // State abbreviations and country to skip
+                    const skipState = /^(India|UP|MH|DL|KA|GJ|RJ|HR|WB|TN|TS|AP|KL|BR|OR|PB|AS|HP|UK|MP|CG|JH|GA)$/i;
+                    const skipLong = /Pradesh|Maharashtra|Karnataka|Gujarat|Rajasthan|Haryana|Bengal|Tamil|Telangana|Andhra|Kerala|Bihar|Odisha|Punjab|Assam|Himachal|Uttarakhand/i;
+                    // Filter: remove booth codes + state/country segments
+                    const parts = rawLoc.split(",")
+                      .map(p => p.trim())
+                      .filter(p => p.length > 0)
+                      .filter(p => !(/^[A-Za-z]-?\d|^\d+[A-Za-z]?$/.test(p))) // booth/flat codes
+                      .filter(p => !skipState.test(p) && !skipLong.test(p));
+                    if (!parts.length) return city || rawLoc;
+                    // Venue = first segment, city = last segment (or eventCity if known)
+                    let venueName = parts[0].replace(roadSuffixes, "").trim();
+                    const detectedCity = city || parts[parts.length - 1];
+                    // Skip if venue and city are the same word
+                    if (venueName.toLowerCase() === detectedCity.toLowerCase()) {
+                      return detectedCity;
                     }
-                    return city || venueShort || rawLoc;
+                    const combined = `${venueName}, ${detectedCity}`;
+                    // If combined > 30 chars, show city only
+                    return combined.length <= 30 ? combined : detectedCity;
                   })()}
                 </p>
               </div>
