@@ -1252,11 +1252,15 @@ export default function ShiftDetail() {
         {!isAdmin && eligible && !isApplied && isApproved && availableRoles.length > 0 && !applicationsClosed && !isFull && (
           <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50/60 to-white px-5 py-4">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-violet-500 mb-3">
-              Select Your Role{availableRoles.length > 1 ? "(s)" : ""} <span className="text-gray-400 normal-case font-normal tracking-normal">(max 2)</span>
+              Select Your Role{availableRoles.length > 1 ? "(s)" : ""}
+              {availableRoles.length > 1 && <span className="text-gray-400 normal-case font-normal tracking-normal ml-1">(max 2)</span>}
             </p>
             <div className="space-y-2">
               {availableRoles.map(role => {
-                const isSelected = selectedRoles.includes(role);
+                const selIdx = selectedRoles.indexOf(role);
+                const isSelected = selIdx !== -1;
+                const isPreferred = selIdx === 0;
+                const isBackup = selIdx === 1;
                 const isDisabled = !isSelected && selectedRoles.length >= 2;
                 return (
                   <button
@@ -1264,31 +1268,51 @@ export default function ShiftDetail() {
                     onClick={() => toggleRole(role)}
                     disabled={isDisabled}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium transition-all text-left ${
-                      isSelected
-                        ? "border-violet-400 bg-violet-100 text-violet-900 shadow-sm"
+                      isPreferred
+                        ? "border-violet-500 bg-violet-100 text-violet-900 shadow-sm ring-1 ring-violet-300"
+                        : isBackup
+                        ? "border-violet-300 bg-violet-50 text-violet-800"
                         : isDisabled
                         ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
                         : "border-gray-200 bg-white text-gray-700 hover:border-violet-300 hover:bg-violet-50/60"
                     }`}
                   >
+                    {/* Radio indicator */}
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-                      isSelected ? "border-violet-500 bg-violet-500" : "border-gray-300 bg-white"
+                      isPreferred ? "border-violet-600 bg-violet-600"
+                      : isBackup  ? "border-violet-400 bg-violet-400"
+                      : "border-gray-300 bg-white"
                     }`}>
                       {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
                     </div>
-                    <span>{role}</span>
+
+                    {/* Role name */}
+                    <span className="flex-1">{role}</span>
+
+                    {/* Priority tag */}
+                    {isPreferred && (
+                      <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-violet-600 text-white">
+                        Preferred
+                      </span>
+                    )}
+                    {isBackup && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border border-violet-300 text-violet-500">
+                        Backup
+                      </span>
+                    )}
                   </button>
                 );
               })}
             </div>
-            {selectedRoles.length === 2 && (
-              <p className="text-[11px] text-violet-500 mt-2.5 text-center">Maximum 2 roles selected</p>
-            )}
-            {selectedRoles.length > 0 && availableRoles.length > 1 && (
-              <p className="text-[11px] text-gray-400 mt-1.5 text-center">
-                {selectedRoles.length === 1 ? "Add a backup role if you're flexible" : "Preferred + backup role selected"}
-              </p>
-            )}
+
+            {/* Dynamic helper text */}
+            <p className="text-[11px] text-gray-400 mt-2.5 text-center leading-relaxed">
+              {selectedRoles.length === 0 && availableRoles.length > 1
+                ? "First selection = Preferred · Second = Backup"
+                : selectedRoles.length === 1
+                ? `${selectedRoles[0]} selected as Preferred${availableRoles.length > 1 ? " · Add a backup role" : ""}`
+                : `${selectedRoles[0]} as Preferred · ${selectedRoles[1]} as Backup`}
+            </p>
           </div>
         )}
 
