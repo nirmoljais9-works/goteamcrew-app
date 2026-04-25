@@ -92,6 +92,7 @@ router.get("/shifts", requireAuth, requireNotBlacklisted, async (req: any, res) 
         eventReferralReward: eventsTable.referralReward,
         eventDressCode: eventsTable.dressCode,
         eventDressCodeImage: eventsTable.dressCodeImage,
+        eventImage: eventsTable.eventImage,
         eventStoredStatus: eventsTable.status,
       })
       .from(shiftsTable)
@@ -249,6 +250,7 @@ router.get("/shifts/:id", requireAuth, requireNotBlacklisted, async (req: any, r
         eventReferralReward: eventsTable.referralReward,
         eventDressCode: eventsTable.dressCode,
         eventDressCodeImage: eventsTable.dressCodeImage,
+        eventImage: eventsTable.eventImage,
         eventDescription: eventsTable.description,
         eventLatitude: eventsTable.latitude,
         eventLongitude: eventsTable.longitude,

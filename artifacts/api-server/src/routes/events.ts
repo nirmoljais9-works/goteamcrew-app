@@ -167,7 +167,7 @@ router.get("/events/drafts", requireAdmin, async (_req, res) => {
 router.post("/events", requireAdmin, async (req: any, res) => {
   console.log("[events] REQUEST BODY:", JSON.stringify(req.body, null, 2));
   try {
-    const { saveAsDraft, title, description, city, location, latitude, longitude, startDate, endDate, clientName, timings, dressCode, dressCodeImage, foodProvided, mealsProvided, incentives, referralReward, referralMessage, expectedCheckIn, expectedCheckOut, lateThresholdMinutes, breakWindowStart, breakWindowEnd, allowedBreakMinutes } = req.body;
+    const { saveAsDraft, title, description, city, location, latitude, longitude, startDate, endDate, clientName, timings, dressCode, dressCodeImage, eventImage, foodProvided, mealsProvided, incentives, referralReward, referralMessage, expectedCheckIn, expectedCheckOut, lateThresholdMinutes, breakWindowStart, breakWindowEnd, allowedBreakMinutes } = req.body;
     let { role, genderRequired, workTask, payPerDay, payFemale, payMale, payFresher, roleConfigs: roleConfigsRaw, totalSlots } = req.body;
     let payMaleMax: string | null = null;
     let payFemaleMax: string | null = null;
@@ -323,6 +323,7 @@ router.post("/events", requireAdmin, async (req: any, res) => {
       timings: timings || null,
       dressCode: dressCode || null,
       dressCodeImage: dressCodeImage || null,
+      eventImage: eventImage || null,
       foodProvided: !!foodProvided,
       mealsProvided: foodProvided ? (mealsProvided || null) : null,
       incentives: incentives || null,
@@ -438,7 +439,7 @@ router.put("/events/:id", requireAdmin, async (req: any, res) => {
       computedStatus = autoStatus(new Date(startDate), new Date(endDate));
     }
 
-    let { role, genderRequired, workTask, payPerDay, payFemale, payMale, payFresher, roleConfigs: putRoleConfigsRaw, timings, dressCode, dressCodeImage, foodProvided, mealsProvided, incentives, referralReward, referralMessage, totalSlots, latitude, longitude, expectedCheckIn, expectedCheckOut, lateThresholdMinutes, breakWindowStart, breakWindowEnd, allowedBreakMinutes } = req.body;
+    let { role, genderRequired, workTask, payPerDay, payFemale, payMale, payFresher, roleConfigs: putRoleConfigsRaw, timings, dressCode, dressCodeImage, eventImage, foodProvided, mealsProvided, incentives, referralReward, referralMessage, totalSlots, latitude, longitude, expectedCheckIn, expectedCheckOut, lateThresholdMinutes, breakWindowStart, breakWindowEnd, allowedBreakMinutes } = req.body;
     let putPayMaleMax: string | null = null;
     let putPayFemaleMax: string | null = null;
 
@@ -513,6 +514,7 @@ router.put("/events/:id", requireAdmin, async (req: any, res) => {
       ...(timings !== undefined && { timings }),
       ...(dressCode !== undefined && { dressCode: dressCode || null }),
       ...(dressCodeImage !== undefined && { dressCodeImage: dressCodeImage || null }),
+      ...(eventImage !== undefined && { eventImage: eventImage || null }),
       ...(foodBool !== undefined && { foodProvided: foodBool }),
       ...(foodBool !== undefined && { mealsProvided: foodBool ? (mealsProvided || null) : null }),
       ...(incentives !== undefined && { incentives: incentives || null }),

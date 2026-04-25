@@ -139,6 +139,7 @@ const formSchema = z.object({
   startTime: z.string().min(1, "Required"),
   endDate: z.string().min(1, "Required"),
   endTime: z.string().min(1, "Required"),
+  eventImage: z.string().optional(),
   dressCode: z.string().optional(),
   dressCodeImage: z.string().optional(),
   description: z.string().optional(),
@@ -359,6 +360,7 @@ function eventToFormValues(ev: any): FormValues {
     startTime: start.time,
     endDate: end.date,
     endTime: end.time,
+    eventImage: (ev as any).eventImage ?? "",
     dressCode: ev.dressCode ?? "",
     dressCodeImage: ev.dressCodeImage ?? "",
     description: ev.description ?? "",
@@ -380,7 +382,7 @@ const BLANK: FormValues = {
   payPerDay: "", payFemale: "", payMale: "", payFresher: "", totalSlots: "10",
   startDate: "", startTime: "10:00",
   endDate: "", endTime: "18:00",
-  dressCode: "", dressCodeImage: "", description: "",
+  eventImage: "", dressCode: "", dressCodeImage: "", description: "",
   foodProvided: "no",
   mealsProvided: undefined,
   incentives: "",
@@ -822,6 +824,7 @@ export default function AdminEvents() {
         ...(startISO && { startDate: startISO }),
         ...(endISO && { endDate: endISO }),
         ...(timings && { timings }),
+        eventImage: values.eventImage || null,
         dressCode: values.dressCode || null,
         dressCodeImage: values.dressCodeImage || null,
         description: values.description || null,
@@ -973,6 +976,7 @@ export default function AdminEvents() {
       startDate: startISO,
       endDate: endISO,
       timings,
+      eventImage: values.eventImage || "",
       dressCode: values.dressCode || "",
       dressCodeImage: values.dressCodeImage || "",
       description: values.description || "",
@@ -1624,6 +1628,49 @@ export default function AdminEvents() {
                   </FormItem>
                 )} />
               </div>
+
+              <FormField control={form.control} name="eventImage" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Event Cover Photo</FormLabel>
+                  <FormControl>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer border border-dashed border-border rounded-xl px-4 py-3 hover:bg-muted/30 transition-colors text-sm text-muted-foreground">
+                        <span className="text-lg">🖼️</span>
+                        <span>{field.value ? "Photo attached — click to change" : "Attach cover photo (JPG, PNG, max 2 MB)"}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            if (file.size > 2 * 1024 * 1024) {
+                              alert("Please use an image under 2 MB");
+                              return;
+                            }
+                            const reader = new FileReader();
+                            reader.onload = () => field.onChange(reader.result as string);
+                            reader.readAsDataURL(file);
+                          }}
+                        />
+                      </label>
+                      {field.value && (
+                        <div className="relative inline-block">
+                          <img src={field.value} alt="Event cover" className="h-28 w-auto rounded-lg border border-border object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => field.onChange("")}
+                            className="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center hover:bg-rose-600"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
 
               <SectionHeading>Job Details & Payment</SectionHeading>
               <div className="space-y-3">

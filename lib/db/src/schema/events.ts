@@ -25,6 +25,7 @@ export const eventsTable = pgTable("events", {
   payFresher: numeric("pay_fresher", { precision: 10, scale: 2 }),
   timings: text("timings"),
   dressCode: text("dress_code"),
+  eventImage: text("event_image"),
   dressCodeImage: text("dress_code_image"),
   foodProvided: boolean("food_provided").notNull().default(false),
   mealsProvided: text("meals_provided"),
