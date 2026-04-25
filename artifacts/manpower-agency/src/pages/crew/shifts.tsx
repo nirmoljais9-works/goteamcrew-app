@@ -310,13 +310,17 @@ export default function BrowseShifts() {
                 }`}
               >
                 {/* Banner — image if available, gradient fallback */}
-                <div className="relative h-28 overflow-hidden">
+                <div className="relative h-44 overflow-hidden rounded-t-2xl">
                   {s.eventImage ? (
-                    <img
-                      src={s.eventImage}
-                      alt={shift.eventTitle}
-                      className="w-full h-full object-cover"
-                    />
+                    <>
+                      <img
+                        src={s.eventImage}
+                        alt={shift.eventTitle}
+                        className="w-full h-full object-cover object-center"
+                      />
+                      {/* Subtle dark scrim so badges stay readable */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/10" />
+                    </>
                   ) : (
                     <div className={`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
                       <div className="absolute -top-4 -right-4 w-24 h-24 rounded-full bg-white/10" />
