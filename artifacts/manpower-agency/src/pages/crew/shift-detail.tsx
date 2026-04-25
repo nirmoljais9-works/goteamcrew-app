@@ -56,6 +56,71 @@ async function fetchFreshShift(shiftId: string | number): Promise<any | null> {
   }
 }
 
+/** Clean "Venue, City" from a full Google Maps address — strips booth codes, skips state/country */
+function isBoothCode(segment: string): boolean {
+  return /^[A-Za-z]-?\d+/i.test(segment) || /^\d+[A-Za-z]?$/.test(segment);
+}
+function splitByVenueKeyword(segment: string): string | null {
+  const capWords = (arr: string[]) => arr.filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  const keywords = ["expo","mart","ground","hall","center","centre","complex","arena","stadium","palace","garden"];
+  const words = segment.split(" ").filter(Boolean);
+  let venue: string[] = [], city: string[] = [];
+  words.forEach((w, i) => { if (keywords.includes(w.toLowerCase())) { venue = words.slice(0, i + 1); city = words.slice(i + 1); } });
+  if (venue.length && city.length) {
+    const r = `${capWords(venue)}, ${capWords(city)}`;
+    return r.length > 32 ? capWords(city) : r;
+  }
+  return null;
+}
+function formatLocation(location: string | null | undefined): string {
+  if (!location) return "";
+  const capWords = (s: string) => s.split(" ").filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  const stateCountry = /^(India|UP|MH|DL|KA|GJ|RJ|HR|WB|TN|TS|AP|KL|BR|OR|PB|AS|HP|UK|MP|CG|JH|GA)$/i;
+  const longState = /Pradesh|Maharashtra|Karnataka|Gujarat|Rajasthan|Haryana|Bengal|Tamil|Telangana|Andhra|Kerala|Bihar|Odisha|Punjab|Assam|Himachal|Uttarakhand/i;
+  let parts = location.split(",").map(p => p.trim()).filter(p => p.length > 0 && !isBoothCode(p));
+  if (!parts.length) return "";
+  if (parts.length >= 3) {
+    const venue = parts[0];
+    let cityIdx = parts.length - 1;
+    while (cityIdx > 1 && (stateCountry.test(parts[cityIdx]) || longState.test(parts[cityIdx]) || parts[cityIdx].length <= 2)) cityIdx--;
+    const city = parts[Math.max(cityIdx, 1)];
+    if (venue.toLowerCase() === city.toLowerCase()) return capWords(venue);
+    const r = `${capWords(venue)}, ${capWords(city)}`;
+    return r.length > 32 ? capWords(city) : r;
+  }
+  if (parts.length === 2) {
+    const isStateAbbrev = parts[1].length <= 3 || stateCountry.test(parts[1]);
+    if (isStateAbbrev) return splitByVenueKeyword(parts[0]) || capWords(parts[0]);
+    const r = `${capWords(parts[0])}, ${capWords(parts[1])}`;
+    return r.length > 32 ? capWords(parts[1]) : r;
+  }
+  return splitByVenueKeyword(parts[0]) || capWords(parts[0]);
+}
+
+/** Overall pay range across ALL role configs (not profile-specific) */
+function getAllRolesPayRange(s: any): { min: number; max: number } | null {
+  try {
+    const raw = s?.eventRoleConfigs || (s as any)?.roleConfigs;
+    if (raw) {
+      const configs: any[] = typeof raw === "string" ? JSON.parse(raw) : raw;
+      const vals: number[] = [];
+      configs.forEach(c => {
+        if (c.minPay != null) vals.push(Number(c.minPay));
+        if (c.maxPay != null) vals.push(Number(c.maxPay));
+        if (c.pay   != null) vals.push(Number(c.pay));
+        if (c.payMale   != null) { const v = parseFloat(String(c.payMale).split("-")[0]); if (!isNaN(v)) vals.push(v); }
+        if (c.payFemale != null) { const v = parseFloat(String(c.payFemale).split("-")[0]); if (!isNaN(v)) vals.push(v); }
+      });
+      if (vals.length) return { min: Math.min(...vals), max: Math.max(...vals) };
+    }
+  } catch {}
+  // Fallback to legacy event-level fields
+  const candidates = [s?.eventPayPerDay, s?.eventPayMale, s?.eventPayFemale, s?.eventPayFresher]
+    .map(v => v != null ? parseFloat(v) : null).filter((v): v is number => v !== null && !isNaN(v));
+  if (candidates.length) return { min: Math.min(...candidates), max: Math.max(...candidates) };
+  return null;
+}
+
 function isGenderEligible(profileGender: string | null | undefined, eventGenderRequired: string | null | undefined): boolean {
   if (!eventGenderRequired || eventGenderRequired === "both" || eventGenderRequired === "Both" || eventGenderRequired === "any") return true;
   if (!profileGender) return true;
@@ -836,37 +901,29 @@ export default function ShiftDetail() {
         <div className="bg-card rounded-3xl border border-border/60 overflow-hidden shadow-sm">
           <div className="h-1.5 bg-gradient-to-r from-primary via-violet-500 to-indigo-400" />
           <div className="p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
+            <div className="space-y-3">
+              <div>
                 <span className="inline-block text-xs font-bold uppercase tracking-widest text-primary bg-primary/8 px-2.5 py-1 rounded-full mb-3">
                   {displayRole}
                 </span>
                 <h1 className="text-2xl font-display font-bold text-foreground leading-tight">{s.eventTitle}</h1>
+                {(() => {
+                  const allPay = getAllRolesPayRange(s);
+                  if (!allPay) return null;
+                  const fmt = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+                  const label = allPay.max > allPay.min
+                    ? `${fmt(allPay.min)} – ${fmt(allPay.max)} / day`
+                    : `${fmt(allPay.min)} / day`;
+                  return (
+                    <p className="mt-2 text-base font-bold text-emerald-600 flex items-center gap-1.5">
+                      💰 {label}
+                    </p>
+                  );
+                })()}
                 {workTask && (
-                  <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{workTask}</p>
+                  <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{workTask}</p>
                 )}
               </div>
-              {payRange !== null && (
-                <div className="text-right shrink-0">
-                  {payRange.max && payRange.max !== payRange.min ? (
-                    <>
-                      <div className="flex items-center gap-0.5 text-2xl font-display font-bold text-foreground">
-                        <IndianRupee className="w-5 h-5" />
-                        {payRange.min.toFixed(0)}–{payRange.max.toFixed(0)}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">per day (based on profile)</p>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-0.5 text-3xl font-display font-bold text-foreground">
-                        <IndianRupee className="w-6 h-6" />
-                        {payRange.min.toFixed(0)}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">per day</p>
-                    </>
-                  )}
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -992,7 +1049,18 @@ export default function ShiftDetail() {
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-muted-foreground font-medium">Venue</p>
                 <p className="text-sm font-semibold text-foreground">
-                  {s.eventCity ? `${s.eventCity} — ` : ""}{s.eventLocation}
+                  {(() => {
+                    const city = s.eventCity?.trim() || "";
+                    const rawLoc = s.eventLocation?.trim() || "";
+                    if (!rawLoc && !city) return "—";
+                    // Extract short venue: take first segment before comma, cap at 36 chars
+                    const venueRaw = rawLoc.split(",")[0].trim();
+                    const venueShort = venueRaw.length > 36 ? venueRaw.slice(0, 33) + "…" : venueRaw;
+                    if (city && venueShort && venueShort.toLowerCase() !== city.toLowerCase()) {
+                      return `${venueShort}, ${city}`;
+                    }
+                    return city || venueShort || rawLoc;
+                  })()}
                 </p>
               </div>
             </div>
