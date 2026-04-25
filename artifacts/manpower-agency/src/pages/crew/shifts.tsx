@@ -3,6 +3,49 @@ import { useLocation } from "wouter";
 import { format, differenceInCalendarDays } from "date-fns";
 import { MapPin, CalendarDays, ShieldX, Timer, Gift, Users } from "lucide-react";
 import { motion } from "framer-motion";
+import { useState } from "react";
+
+/** Renders an event cover image with smart orientation handling.
+ *  - Portrait images: blurred background fill + contained image centred on top
+ *  - Landscape images: cover crop anchored to top-centre so faces stay visible
+ */
+function SmartBannerImage({ src, alt }: { src: string; alt: string }) {
+  const [portrait, setPortrait] = useState<boolean | null>(null);
+
+  function handleLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    const img = e.currentTarget;
+    setPortrait(img.naturalHeight > img.naturalWidth);
+  }
+
+  return (
+    <div className="relative w-full h-full overflow-hidden">
+      {/* Blurred background — always rendered, only visible for portrait */}
+      <img
+        src={src}
+        alt=""
+        aria-hidden
+        className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl brightness-75"
+        style={{ display: portrait === false ? "none" : undefined }}
+      />
+
+      {/* Main image */}
+      <img
+        src={src}
+        alt={alt}
+        onLoad={handleLoad}
+        className={[
+          "relative z-10 w-full h-full",
+          portrait
+            ? "object-contain object-center"   // portrait: full image visible
+            : "object-cover object-top",        // landscape: cover, faces at top
+        ].join(" ")}
+      />
+
+      {/* Scrim for badge readability */}
+      <div className="absolute inset-0 z-20 bg-gradient-to-t from-black/30 via-transparent to-black/10 pointer-events-none" />
+    </div>
+  );
+}
 
 function isGenderEligible(profileGender: string | null | undefined, eventGenderRequired: string | null | undefined): boolean {
   if (!eventGenderRequired || eventGenderRequired === "both" || eventGenderRequired === "Both" || eventGenderRequired === "any") return true;
@@ -312,15 +355,7 @@ export default function BrowseShifts() {
                 {/* Banner — image if available, gradient fallback */}
                 <div className="relative h-56 overflow-hidden rounded-t-2xl">
                   {s.eventImage ? (
-                    <>
-                      <img
-                        src={s.eventImage}
-                        alt={shift.eventTitle}
-                        className="w-full h-full object-cover object-top"
-                      />
-                      {/* Subtle dark scrim so badges stay readable */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/10" />
-                    </>
+                    <SmartBannerImage src={s.eventImage} alt={shift.eventTitle} />
                   ) : (
                     <div className={`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
                       <div className="absolute -top-4 -right-4 w-24 h-24 rounded-full bg-white/10" />
@@ -333,14 +368,14 @@ export default function BrowseShifts() {
 
                   {/* Not eligible ribbon */}
                   {!eligible && (
-                    <div className="absolute top-2.5 left-3 bg-white/90 backdrop-blur-sm text-violet-700 text-[10px] font-bold px-2.5 py-1 rounded-full">
+                    <div className="absolute top-2.5 left-3 z-30 bg-white/90 backdrop-blur-sm text-violet-700 text-[10px] font-bold px-2.5 py-1 rounded-full">
                       {getGenderLabel(gender)}
                     </div>
                   )}
 
                   {/* Multi-day pill */}
                   {eventDays > 1 && (
-                    <div className="absolute top-2.5 right-3 bg-black/40 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
+                    <div className="absolute top-2.5 right-3 z-30 bg-black/40 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
                       {eventDays} days
                     </div>
                   )}
