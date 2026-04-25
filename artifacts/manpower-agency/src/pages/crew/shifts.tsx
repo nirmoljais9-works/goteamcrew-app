@@ -377,12 +377,6 @@ export default function BrowseShifts() {
                     </div>
                   )}
 
-                  {/* Multi-day pill */}
-                  {eventDays > 1 && (
-                    <div className="absolute top-2.5 right-3 z-30 bg-black/40 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-full">
-                      {eventDays} days
-                    </div>
-                  )}
                 </div>
 
                 {/* Card body */}
@@ -401,10 +395,17 @@ export default function BrowseShifts() {
                     </div>
                   )}
 
-                  {/* Date */}
+                  {/* Date + duration */}
                   <div className="flex items-center gap-1.5 text-sm text-slate-600 font-medium">
                     <CalendarDays className="w-3.5 h-3.5 shrink-0 text-slate-400" />
-                    <span>{dateLabel}</span>
+                    <span>
+                      {dateLabel}
+                      {eventDays >= 1 && (
+                        <span className="text-slate-400 font-normal ml-1">
+                          ({eventDays} {eventDays === 1 ? "day" : "days"})
+                        </span>
+                      )}
+                    </span>
                   </div>
 
                   {/* Badges row */}
