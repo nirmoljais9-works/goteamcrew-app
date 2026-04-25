@@ -17,50 +17,40 @@ function getGenderLabel(gender: string | null | undefined): string {
   return `${gender} Only`;
 }
 
-/**
- * formatLocation — extracts "Venue, City" from a full Google Maps address.
- *
- * Examples:
- *   "India Expo Mart, Greater Noida, Uttar Pradesh, India" → "India Expo Mart, Greater Noida"
- *   "Connaught Place, New Delhi, Delhi, India"             → "Connaught Place, New Delhi"
- *   "Mumbai, Maharashtra, India"                           → "Mumbai"
- *   "Expo Mart Greater Noida, UP"                         → "Greater Noida" (too long, city only)
- *
- * If the result exceeds 30 chars, returns city only.
- */
-function formatLocation(loc: string | null | undefined): string {
-  if (!loc || loc.trim() === "" || loc === "TBD") return "Location TBD";
+function formatLocation(location: string | null | undefined): string {
+  if (!location) return "";
 
-  const parts = loc.split(",").map((p) => p.trim()).filter(Boolean);
+  let parts = location.split(",");
 
-  if (parts.length === 1) {
-    const s = parts[0];
-    return s.length > 30 ? s.slice(0, 28) + "…" : s;
+  parts = parts
+    .map((p) => p.trim())
+    .filter((p) => !/^[A-Za-z]-?\d+/i.test(p));
+
+  const main = parts[0] || "";
+  const words = main.split(" ");
+
+  const venueKeywords = ["expo", "mart", "ground", "hall", "center"];
+
+  let venue: string[] = [];
+  let city: string[] = [];
+
+  words.forEach((word, i) => {
+    if (venueKeywords.includes(word.toLowerCase())) {
+      venue = words.slice(0, i + 1);
+      city = words.slice(i + 1);
+    }
+  });
+
+  const cap = (arr: string[]) =>
+    arr.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+
+  if (venue.length && city.length) {
+    const result = `${cap(venue)}, ${cap(city)}`;
+    if (result.length > 30) return cap(city);
+    return result;
   }
 
-  const venue = parts[0];
-
-  // For Indian addresses the typical structure is:
-  //   Venue, [Area,] City, State, Country
-  // City is therefore 3rd from end for 4+ parts, or 2nd part for 2–3 parts.
-  let city: string;
-  if (parts.length >= 4) {
-    city = parts[parts.length - 3];
-  } else if (parts.length === 3) {
-    city = parts[1];
-  } else {
-    city = parts[1];
-  }
-
-  if (venue.toLowerCase() === city.toLowerCase()) {
-    return venue.length > 30 ? venue.slice(0, 28) + "…" : venue;
-  }
-
-  const combined = `${venue}, ${city}`;
-  if (combined.length > 30) {
-    return city.length > 30 ? city.slice(0, 28) + "…" : city;
-  }
-  return combined;
+  return cap(words.slice(-2));
 }
 
 /** Deterministic gradient per event title for the card banner */
