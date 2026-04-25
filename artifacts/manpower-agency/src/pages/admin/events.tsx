@@ -1541,14 +1541,16 @@ export default function AdminEvents() {
                           // Maps URL paste — extract coords from URL
                           handleLocationPaste(val);
                         } else if (!isFromPlaceSelection) {
-                          // User is typing freely (not selecting from dropdown) — clear stale
-                          // coords so old lat/lng from a previous place doesn't get saved.
-                          // When the user DOES select from the dropdown, isFromPlaceSelection=true
-                          // and we skip this so onPlaceSelected can set the fresh coords.
+                          // User is typing freely — clear stale coords from any previous place
                           form.setValue("latitude", "", { shouldDirty: true });
                           form.setValue("longitude", "", { shouldDirty: true });
-                          setGeoStatus("idle");
-                          setGeoMessage("");
+                          if (val.trim().length > 0) {
+                            setGeoStatus("pending");
+                            setGeoMessage("📝 Location entered as text — no GPS coordinates");
+                          } else {
+                            setGeoStatus("idle");
+                            setGeoMessage("");
+                          }
                         }
                       }}
                       onPlaceSelected={(place) => {

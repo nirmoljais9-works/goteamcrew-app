@@ -42,6 +42,7 @@ export function PlacesAutocompleteInput({
   const [showDropdown, setShowDropdown] = useState(false);
   const [inputValue, setInputValue] = useState(value);
   const [loading, setLoading] = useState(false);
+  const [apiUnavailable, setApiUnavailable] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeIndexRef = useRef(-1);
   const abortRef = useRef<AbortController | null>(null);
@@ -96,6 +97,15 @@ export function PlacesAutocompleteInput({
         `${BASE_URL}/api/places/autocomplete?q=${encodeURIComponent(query)}`,
         { signal: abortRef.current.signal, credentials: "include" }
       );
+
+      if (res.status === 503) {
+        // Google Maps API key not configured — degrade gracefully
+        setApiUnavailable(true);
+        setPredictions([]);
+        setShowDropdown(false);
+        return;
+      }
+
       const data = await res.json();
       const results: any[] = data.predictions || [];
 
@@ -135,12 +145,14 @@ export function PlacesAutocompleteInput({
       return;
     }
 
+    // Skip API call if we already know it's not configured
+    if (apiUnavailable) return;
+
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => fetchPredictions(val), 300);
   };
 
   const handleBlur = () => {
-    // Small delay so click-on-dropdown still fires before we clear the flag
     setTimeout(() => { userTypingRef.current = false; }, 200);
   };
 
@@ -237,10 +249,16 @@ export function PlacesAutocompleteInput({
         </div>
       )}
 
-      {loading && (
+      {loading && !apiUnavailable && (
         <div className="absolute right-3 top-1/2 -translate-y-1/2">
           <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
         </div>
+      )}
+
+      {apiUnavailable && inputValue.trim().length >= 2 && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          Venue search unavailable — type any location and save
+        </p>
       )}
     </div>
   );
