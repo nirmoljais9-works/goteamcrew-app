@@ -1706,7 +1706,6 @@ export default function AdminEvents() {
                                   payMaleError: lostRange ? "Max must be ≥ min" : undefined,
                                 } : c));
                               }}
-                              placeholder="e.g. 1500 or 1000-4000"
                             />
                           </div>
                           {config.payMaleError
@@ -1741,7 +1740,6 @@ export default function AdminEvents() {
                                   payFemaleError: lostRange ? "Max must be ≥ min" : undefined,
                                 } : c));
                               }}
-                              placeholder="e.g. 1500 or 1000-4000"
                             />
                           </div>
                           {config.payFemaleError
@@ -1774,7 +1772,6 @@ export default function AdminEvents() {
                             setRoleConfigs(prev => prev.map((c, idx) => idx === i ? { ...c, slots: e.target.value, slotsError: "Min 1 slot required" } : c));
                           }
                         }}
-                        placeholder="e.g. 4"
                         className={`h-9 ${config.slotsError ? "border-destructive" : ""}`}
                       />
                       {config.slotsError && <p className="text-xs text-destructive mt-1">{config.slotsError}</p>}
