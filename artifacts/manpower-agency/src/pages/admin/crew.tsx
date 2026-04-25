@@ -79,7 +79,9 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; s
 }
 
 export default function AdminCrew() {
-  const { data: crewMembers, isLoading } = useAdminGetAllCrew();
+  const { data: crewMembers, isLoading } = useAdminGetAllCrew({
+    query: { refetchInterval: 15_000 },
+  });
   const approveMutation = useAdminApproveCrew();
   const queryClient = useQueryClient();
   const { toast } = useToast();
