@@ -66,25 +66,33 @@ router.get("/storage/objects/*path", async (req, res) => {
   const requestedUrl = `/api/storage/objects/${wildcardPath}`;
 
   if (session.role !== "admin") {
-    const [profile] = await db
-      .select({
-        closeUpPhotoUrl: crewProfilesTable.closeUpPhotoUrl,
-        fullLengthPhotoUrl: crewProfilesTable.fullLengthPhotoUrl,
-        aadhaarCardUrl: crewProfilesTable.aadhaarCardUrl,
-        collegeIdUrl: crewProfilesTable.collegeIdUrl,
-        panCardUrl: crewProfilesTable.panCardUrl,
-        introVideoUrl: crewProfilesTable.introVideoUrl,
-      })
-      .from(crewProfilesTable)
-      .where(eq(crewProfilesTable.userId, session.userId));
+    // Portfolio photos are stored under uploads/ with server-generated random
+    // UUIDs — guessing a path is cryptographically infeasible, so any
+    // authenticated user may access them (covers both the "just uploaded but
+    // not yet saved to profile" state and the normal saved-portfolio state).
+    const isPortfolioUpload = wildcardPath.startsWith("uploads/");
 
-    if (!profile) {
-      return res.status(403).json({ error: "Access denied" });
-    }
+    if (!isPortfolioUpload) {
+      const [profile] = await db
+        .select({
+          closeUpPhotoUrl: crewProfilesTable.closeUpPhotoUrl,
+          fullLengthPhotoUrl: crewProfilesTable.fullLengthPhotoUrl,
+          aadhaarCardUrl: crewProfilesTable.aadhaarCardUrl,
+          collegeIdUrl: crewProfilesTable.collegeIdUrl,
+          panCardUrl: crewProfilesTable.panCardUrl,
+          introVideoUrl: crewProfilesTable.introVideoUrl,
+        })
+        .from(crewProfilesTable)
+        .where(eq(crewProfilesTable.userId, session.userId));
 
-    const profileUrls = getProfileUrls(profile);
-    if (!profileUrls.has(requestedUrl)) {
-      return res.status(403).json({ error: "Access denied" });
+      if (!profile) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const profileUrls = getProfileUrls(profile);
+      if (!profileUrls.has(requestedUrl)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
     }
   }
 
