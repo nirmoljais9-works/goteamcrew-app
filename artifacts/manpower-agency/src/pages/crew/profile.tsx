@@ -743,7 +743,6 @@ export default function Profile() {
         try {
           const dataUrl = await uploadPhotoToServer(file, BASE_URL);
           results.push(dataUrl);
-          toast({ title: "✓ Photo uploaded", description: "Added to your portfolio." });
         } catch (err: any) {
           toast({
             variant: "destructive",
@@ -815,9 +814,9 @@ export default function Profile() {
       if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Failed to save portfolio"); }
       await queryClient.invalidateQueries({ queryKey: ["/api/crew/profile"] });
       setPortfolioChanged(false);
-      toast({ title: "Portfolio saved", description: `${portfolioPhotos.length} photo${portfolioPhotos.length !== 1 ? "s" : ""} saved to your profile.` });
+      toast({ title: "Photos saved to your portfolio" });
     } catch (e: any) {
-      toast({ variant: "destructive", title: e.message });
+      toast({ variant: "destructive", title: "Failed to save photos. Try again." });
     } finally {
       setSavingPortfolio(false);
     }
