@@ -803,7 +803,6 @@ export default function CrewDashboard() {
             </Link>
           </div>
           <div className="space-y-2">
-            <ProfileStrengthNudge strength={strength} onImprove={() => setLocation("/profile")} />
             {appliedClaims.slice(0, 3).map((s: any) => {
               const evtDate = s.eventStartDate ? new Date(s.eventStartDate) : null;
               const isPending = s.status === "pending";

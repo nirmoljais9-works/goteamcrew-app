@@ -17,7 +17,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
-  ArrowLeft, MapPin, CalendarDays, Clock, Users, IndianRupee,
+  ArrowLeft, ArrowRight, MapPin, CalendarDays, Clock, Users, IndianRupee,
   UserCheck, Shirt, Sparkles, GraduationCap, CheckCircle2, ChevronRight,
   AlertTriangle, AlertCircle, ZoomIn, X, Gift, Copy, MessageCircle,
   Navigation, Fingerprint, Zap, Timer, Camera, Loader2, LocateFixed, LogOut, RefreshCw,
@@ -95,6 +95,21 @@ function formatLocation(location: string | null | undefined): string {
     return r.length > 32 ? capWords(parts[1]) : r;
   }
   return splitByVenueKeyword(parts[0]) || capWords(parts[0]);
+}
+
+/** Profile strength 0-100 — same logic as dashboard */
+function calcStrength(profile: any): number {
+  if (!profile) return 0;
+  const photos: string[] = (() => { try { return JSON.parse(profile.portfolioPhotos || "[]"); } catch { return []; } })();
+  let score = 0;
+  const basic = [!!profile.name, !!profile.phone, !!profile.email, !!profile.city, !!profile.gender];
+  score += (basic.filter(Boolean).length / basic.length) * 20;
+  if (photos.length >= 8) score += 30; else if (photos.length >= 4) score += 20; else if (photos.length >= 1) score += 10;
+  if (profile.panNumber) score += 15;
+  if (profile.payHolderName && profile.payAccountNumber) score += 15;
+  const add = [!!profile.category, !!profile.languages, !!profile.experience, !!profile.age];
+  score += (add.filter(Boolean).length / add.length) * 20;
+  return Math.round(score);
 }
 
 /** Overall pay range across ALL role configs (not profile-specific) */
@@ -1804,9 +1819,25 @@ export default function ShiftDetail() {
               )}
             </div>
           ) : isApplied ? (
-            <div className="flex items-center justify-center gap-2 h-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 font-semibold">
-              <CheckCircle2 className="w-5 h-5" />
-              Applied — waiting for approval
+            <div className="space-y-2">
+              {calcStrength(profile) < 70 && (
+                <button
+                  onClick={() => navigate("/profile")}
+                  className="w-full flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/80 px-3.5 py-2.5 text-left hover:bg-amber-100/70 active:scale-[0.99] transition-all"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                    <p className="text-xs font-medium text-amber-900">Increase your chances of selection</p>
+                  </div>
+                  <span className="text-xs font-semibold text-amber-700 whitespace-nowrap flex items-center gap-1 shrink-0">
+                    Improve profile <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </button>
+              )}
+              <div className="flex items-center justify-center gap-2 h-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 font-semibold">
+                <CheckCircle2 className="w-5 h-5" />
+                Applied — waiting for approval
+              </div>
             </div>
           ) : isFull ? (
             <div className="flex items-center justify-center gap-2 h-14 rounded-2xl bg-red-50 border border-red-200 text-red-600 font-semibold">
