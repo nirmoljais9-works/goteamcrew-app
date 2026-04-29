@@ -1836,9 +1836,8 @@ export default function ShiftDetail() {
                     <div className="flex items-center gap-2.5 min-w-0">
                       <Sparkles className={`w-4 h-4 ${iconColor} shrink-0`} />
                       <p className="text-xs min-w-0">
-                        <span className="font-semibold text-slate-800">Profile strength: </span>
                         <span className={`font-bold ${pctColor}`}>{pct}%</span>
-                        <span className="text-slate-500 font-normal"> — {status}</span>
+                        <span className="text-slate-500 font-normal"> profile strength — improve to increase selection chances</span>
                       </p>
                     </div>
                     <span className={`text-xs font-semibold ${pctColor} whitespace-nowrap flex items-center gap-1 shrink-0`}>
