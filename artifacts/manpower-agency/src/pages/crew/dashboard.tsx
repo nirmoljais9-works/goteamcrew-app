@@ -149,6 +149,30 @@ function calcStrength(profile: any): number {
   return Math.round(score);
 }
 
+// ── ProfileStrengthNudge ───────────────────────────────────────────────────────
+function ProfileStrengthNudge({ strength, onImprove }: { strength: number; onImprove: () => void }) {
+  if (strength >= 70) return null;
+  return (
+    <motion.button
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      onClick={onImprove}
+      className="w-full flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/80 px-3.5 py-2.5 text-left hover:bg-amber-100/70 active:scale-[0.99] transition-all"
+    >
+      <div className="flex items-center gap-2.5 min-w-0">
+        <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+        <p className="text-xs font-medium text-amber-900 leading-snug">
+          Increase your chances of selection
+        </p>
+      </div>
+      <span className="text-xs font-semibold text-amber-700 whitespace-nowrap flex items-center gap-1 shrink-0">
+        Improve profile <ArrowRight className="w-3.5 h-3.5" />
+      </span>
+    </motion.button>
+  );
+}
+
 // ── AttendanceCaptureDialog ────────────────────────────────────────────────────
 function AttendanceCaptureDialog({
   open, action, claimId, onDone, onClose,
@@ -779,6 +803,7 @@ export default function CrewDashboard() {
             </Link>
           </div>
           <div className="space-y-2">
+            <ProfileStrengthNudge strength={strength} onImprove={() => setLocation("/profile")} />
             {appliedClaims.slice(0, 3).map((s: any) => {
               const evtDate = s.eventStartDate ? new Date(s.eventStartDate) : null;
               const isPending = s.status === "pending";
