@@ -1820,20 +1820,33 @@ export default function ShiftDetail() {
             </div>
           ) : isApplied ? (
             <div className="space-y-2">
-              {calcStrength(profile) < 70 && (
-                <button
-                  onClick={() => navigate("/profile")}
-                  className="w-full flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/80 px-3.5 py-2.5 text-left hover:bg-amber-100/70 active:scale-[0.99] transition-all"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
-                    <p className="text-xs font-medium text-amber-900">Increase your chances of selection</p>
-                  </div>
-                  <span className="text-xs font-semibold text-amber-700 whitespace-nowrap flex items-center gap-1 shrink-0">
-                    Improve profile <ArrowRight className="w-3.5 h-3.5" />
-                  </span>
-                </button>
-              )}
+              {(() => {
+                const pct = calcStrength(profile);
+                if (pct >= 70) return null;
+                const status = pct < 40 ? "Needs attention" : "Good";
+                const pctColor = pct < 40 ? "text-red-600" : "text-amber-600";
+                const iconColor = pct < 40 ? "text-red-400" : "text-amber-500";
+                const borderColor = pct < 40 ? "border-red-200" : "border-amber-200";
+                const bgColor = pct < 40 ? "bg-red-50/80 hover:bg-red-100/60" : "bg-amber-50/80 hover:bg-amber-100/70";
+                return (
+                  <button
+                    onClick={() => navigate("/profile")}
+                    className={`w-full flex items-center justify-between gap-3 rounded-xl border ${borderColor} ${bgColor} px-3.5 py-2.5 text-left active:scale-[0.99] transition-all`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Sparkles className={`w-4 h-4 ${iconColor} shrink-0`} />
+                      <p className="text-xs min-w-0">
+                        <span className="font-semibold text-slate-800">Profile strength: </span>
+                        <span className={`font-bold ${pctColor}`}>{pct}%</span>
+                        <span className="text-slate-500 font-normal"> — {status}</span>
+                      </p>
+                    </div>
+                    <span className={`text-xs font-semibold ${pctColor} whitespace-nowrap flex items-center gap-1 shrink-0`}>
+                      Improve profile <ArrowRight className="w-3.5 h-3.5" />
+                    </span>
+                  </button>
+                );
+              })()}
               <div className="flex items-center justify-center gap-2 h-14 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 font-semibold">
                 <CheckCircle2 className="w-5 h-5" />
                 Applied — waiting for approval
