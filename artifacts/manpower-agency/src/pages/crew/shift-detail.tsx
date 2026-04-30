@@ -1344,16 +1344,42 @@ export default function ShiftDetail() {
                   <p className="text-base font-bold text-gray-900">{s.myAssignedRole}</p>
                 </div>
               </div>
-            ) : (
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">Applied For</p>
-                <div className="flex flex-wrap gap-2">
-                  {s.myAppliedRoles.map((r: string) => (
-                    <span key={r} className="px-3 py-1 rounded-full bg-violet-100 text-violet-700 text-xs font-semibold">{r}</span>
-                  ))}
+            ) : (() => {
+              const configs: RoleConfigEntry[] = (() => {
+                try { return JSON.parse(s.eventRoleConfigs || "[]"); } catch { return []; }
+              })();
+              return (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">Applied For</p>
+                  <div className="space-y-2">
+                    {(s.myAppliedRoles as string[]).map((roleName: string, idx: number) => {
+                      const cfg = configs.find(c => c.role?.toString().toLowerCase().trim() === roleName.toLowerCase().trim());
+                      const pay = cfg ? resolveRolePayRange(cfg) : null;
+                      return (
+                        <div key={roleName} className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-sm font-semibold text-foreground truncate">{roleName}</span>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                              idx === 0 ? "bg-violet-100 text-violet-700" : "bg-slate-100 text-slate-500"
+                            }`}>
+                              {idx === 0 ? "Preferred" : "Backup"}
+                            </span>
+                          </div>
+                          {pay && (
+                            <span className="text-xs font-semibold text-indigo-600 shrink-0">
+                              ₹{pay.min === pay.max
+                                ? pay.min.toLocaleString("en-IN")
+                                : `${pay.min.toLocaleString("en-IN")}–${pay.max.toLocaleString("en-IN")}`
+                              }/day
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         )}
 
