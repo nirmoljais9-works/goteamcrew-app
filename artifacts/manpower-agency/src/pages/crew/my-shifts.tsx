@@ -697,9 +697,9 @@ type TabKey = "ongoing" | "completed" | "applied" | "history";
 
 const TAB_CONFIG: { key: TabKey; label: string; emptyMsg: string }[] = [
   { key: "applied",   label: "Applied",    emptyMsg: "No applied events yet." },
-  { key: "history",   label: "History",    emptyMsg: "No history yet." },
   { key: "ongoing",   label: "Ongoing",    emptyMsg: "No ongoing events." },
   { key: "completed", label: "Completed",  emptyMsg: "No completed events." },
+  { key: "history",   label: "History",    emptyMsg: "No history yet." },
 ];
 
 const TAB_COLORS: Record<TabKey, { badge: string; dot: string }> = {
@@ -716,7 +716,7 @@ const HISTORY_SUB_TABS: { key: HistorySubTab; label: string; emptyMsg: string; d
     key: "withdrawn",
     label: "Withdrawn",
     emptyMsg: "No withdrawn applications.",
-    desc: "Applications you chose to withdraw from.",
+    desc: "You withdrew from these events.",
   },
   {
     key: "not-selected",
@@ -728,21 +728,18 @@ const HISTORY_SUB_TABS: { key: HistorySubTab; label: string; emptyMsg: string; d
     key: "cancelled",
     label: "Cancelled",
     emptyMsg: "No cancelled events.",
-    desc: "These events were cancelled or removed by the organiser.",
+    desc: "These events were cancelled by the organiser.",
   },
 ];
 
 function HistoryContent({ claims }: { claims: Claim[] }) {
-  // Withdrawn = user-initiated revoke (has a withdrawalReason)
   const withdrawn   = claims.filter(c => c.status === "revoked" && c.withdrawalReason != null);
-  // Cancelled = admin/system revoke (no withdrawalReason)
   const cancelled   = claims.filter(c => c.status === "revoked" && c.withdrawalReason == null);
   const notSelected = claims.filter(c => c.status === "rejected");
 
   const getCount = (key: HistorySubTab) =>
     key === "withdrawn" ? withdrawn.length : key === "not-selected" ? notSelected.length : cancelled.length;
 
-  // Default to first sub-tab that has entries, else "withdrawn"
   const defaultTab: HistorySubTab =
     withdrawn.length > 0 ? "withdrawn" :
     notSelected.length > 0 ? "not-selected" :
@@ -753,9 +750,9 @@ function HistoryContent({ claims }: { claims: Claim[] }) {
   const cfg = HISTORY_SUB_TABS.find(t => t.key === subTab)!;
 
   return (
-    <div className="space-y-4">
-      {/* Sub-tabs */}
-      <div className="flex gap-1.5 flex-wrap">
+    <div className="space-y-5">
+      {/* Minimal text sub-tabs */}
+      <div className="flex gap-0 border-b border-slate-100">
         {HISTORY_SUB_TABS.map(({ key, label }) => {
           const count = getCount(key);
           const isActive = subTab === key;
@@ -763,29 +760,32 @@ function HistoryContent({ claims }: { claims: Claim[] }) {
             <button
               key={key}
               onClick={() => setSubTab(key)}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all ${
+              className={`relative pb-2.5 pr-5 text-sm transition-colors -mb-px ${
                 isActive
-                  ? "bg-slate-700 text-white border-slate-700"
-                  : "bg-white text-muted-foreground border-border hover:border-foreground/30"
+                  ? "font-bold text-foreground"
+                  : "font-medium text-slate-400 hover:text-slate-600"
               }`}
             >
               {label}
-              <span className={`text-[10px] font-bold px-1 rounded-full ${
-                isActive ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
-              }`}>
-                {count}
-              </span>
+              {count > 0 && (
+                <span className={`ml-1 text-[11px] ${isActive ? "text-slate-500" : "text-slate-300"}`}>
+                  {count}
+                </span>
+              )}
+              {isActive && (
+                <span className="absolute bottom-0 left-0 right-5 h-[2px] bg-foreground rounded-full" />
+              )}
             </button>
           );
         })}
       </div>
 
-      <p className="text-xs text-muted-foreground">{cfg.desc}</p>
+      <p className="text-xs text-slate-400 -mt-1">{cfg.desc}</p>
 
       {active.length === 0 ? (
-        <div className="text-center py-12 bg-card rounded-2xl border border-dashed flex flex-col items-center gap-2">
-          <ClipboardList className="w-8 h-8 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">{cfg.emptyMsg}</p>
+        <div className="text-center py-14 flex flex-col items-center gap-2">
+          <ClipboardList className="w-8 h-8 text-slate-200" />
+          <p className="text-sm text-slate-400">{cfg.emptyMsg}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -801,50 +801,45 @@ function HistoryContent({ claims }: { claims: Claim[] }) {
 function HistoryCard({ claim, type }: { claim: Claim; type: HistorySubTab }) {
   const dateRange = formatDateRange(claim.eventStartDate, claim.eventEndDate);
 
-  const configs: Record<HistorySubTab, {
-    headerBg: string; headerText: string;
-    cardBorder: string; cardBg: string;
-    label: string; subtext: string;
-    badge: string;
-  }> = {
-    withdrawn: {
-      headerBg: "bg-slate-200",   headerText: "text-slate-600",
-      cardBorder: "border-slate-200", cardBg: "bg-slate-50/40",
-      label: "Withdrawn",
-      subtext: claim.withdrawalReason ? `Reason: ${claim.withdrawalReason}` : "You withdrew from this event",
-      badge: "bg-slate-100 text-slate-500",
-    },
-    "not-selected": {
-      headerBg: "bg-slate-300",   headerText: "text-slate-700",
-      cardBorder: "border-slate-200", cardBg: "bg-white",
-      label: "Not Selected",
-      subtext: "Client selected other candidates",
-      badge: "bg-slate-100 text-slate-500",
-    },
-    cancelled: {
-      headerBg: "bg-orange-100",  headerText: "text-orange-700",
-      cardBorder: "border-orange-100", cardBg: "bg-orange-50/30",
-      label: "Cancelled",
-      subtext: "Event was cancelled",
-      badge: "bg-orange-100 text-orange-600",
-    },
+  const labelColor: Record<HistorySubTab, string> = {
+    withdrawn:     "text-slate-400",
+    "not-selected": "text-slate-400",
+    cancelled:     "text-orange-400",
   };
 
-  const c = configs[type];
+  const label: Record<HistorySubTab, string> = {
+    withdrawn:     "Withdrawn",
+    "not-selected": "Not Selected",
+    cancelled:     "Cancelled",
+  };
+
+  const subtext: Record<HistorySubTab, string> = {
+    withdrawn:     claim.withdrawalReason ?? "You withdrew from this event",
+    "not-selected": "Client selected other candidates",
+    cancelled:     "Event was cancelled",
+  };
 
   return (
-    <div className={`rounded-xl border overflow-hidden ${c.cardBorder} ${c.cardBg}`}>
-      <div className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold ${c.headerBg} ${c.headerText}`}>
-        {type === "withdrawn" && <CheckCircle2 className="w-3 h-3 opacity-60" />}
-        {type === "not-selected" && <XCircle className="w-3 h-3 opacity-60" />}
-        {type === "cancelled" && <Clock4 className="w-3 h-3 opacity-60" />}
-        {c.label}
-      </div>
-      <div className="px-3 py-3 space-y-1">
-        <p className="font-semibold text-sm text-foreground leading-tight">{claim.eventTitle}</p>
-        <p className="text-xs text-muted-foreground font-medium">{claim.shiftRole}</p>
-        <p className="text-xs text-muted-foreground/70 italic">{c.subtext}</p>
-        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1.5 pt-1 border-t border-slate-100">
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_1px_8px_rgba(0,0,0,0.05)] px-4 pt-3.5 pb-4 space-y-1.5">
+      {/* Status label */}
+      <p className={`text-[10px] font-bold uppercase tracking-widest ${labelColor[type]}`}>
+        {label[type]}
+      </p>
+
+      {/* Event name */}
+      <h3 className="font-bold text-[16px] text-foreground leading-tight tracking-tight">
+        {claim.eventTitle}
+      </h3>
+
+      {/* Role */}
+      <p className="text-sm text-slate-500">{claim.shiftRole}</p>
+
+      {/* Reason / context */}
+      <p className="text-xs text-slate-400">{subtext[type]}</p>
+
+      {/* Date + location */}
+      {(dateRange || claim.eventCity || claim.eventLocation) && (
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-slate-400 pt-2 mt-1 border-t border-slate-50">
           {(claim.eventCity || claim.eventLocation) && (
             <span className="flex items-center gap-1">
               <MapPin className="w-3 h-3" />
@@ -857,7 +852,7 @@ function HistoryCard({ claim, type }: { claim: Claim; type: HistorySubTab }) {
             </span>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
