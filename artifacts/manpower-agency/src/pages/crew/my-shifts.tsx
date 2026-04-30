@@ -490,27 +490,27 @@ function EventCard({
 
   return (
     <div
-      className={`rounded-2xl border overflow-hidden transition-shadow duration-200 ${
+      className={`rounded-2xl border overflow-hidden transition-all duration-200 ${
         isCompleted
           ? "border-slate-200 bg-slate-50/40"
           : isApproved
-          ? "border-emerald-200 bg-emerald-50/30 hover:shadow-md hover:border-emerald-300"
+          ? "border-emerald-200 bg-white shadow-[0_2px_16px_rgba(16,185,129,0.10)] hover:shadow-[0_4px_20px_rgba(16,185,129,0.15)]"
           : isRejected
           ? "border-rose-100 bg-rose-50/20 opacity-80"
-          : "border-border/60 bg-card"
+          : "border-amber-100 bg-white shadow-[0_2px_16px_rgba(0,0,0,0.07)]"
       } ${tappable ? "cursor-pointer" : ""}`}
       onClick={handleTap}
     >
       {/* Header banner */}
       {isCompleted ? (
-        <div className="flex items-center gap-2 px-4 py-2 bg-slate-500 text-white text-xs font-semibold">
-          <CheckCircle2 className="w-3.5 h-3.5" />
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-slate-500 to-slate-600 text-white text-xs font-semibold">
+          <CheckCircle2 className="w-3.5 h-3.5 opacity-80" />
           Event Completed
         </div>
       ) : isApproved ? (
-        <div className="flex items-center justify-between px-4 py-2 bg-emerald-500 text-white text-xs font-semibold">
+        <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-xs font-semibold">
           <span className="flex items-center gap-2">
-            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span className="w-2 h-2 rounded-full bg-white/90 animate-pulse shrink-0" />
             Confirmed Shift — You're In!
           </span>
           <div className="flex items-center gap-2">
@@ -519,64 +519,73 @@ function EventCard({
           </div>
         </div>
       ) : isPending ? (
-        <div className="flex items-center gap-2 px-4 py-2 bg-amber-400 text-white text-xs font-semibold">
-          <Clock4 className="w-3.5 h-3.5" />
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 text-white text-xs font-semibold tracking-wide">
+          <span className="w-2 h-2 rounded-full bg-white/80 animate-pulse shrink-0" />
           Application Pending Review
         </div>
       ) : (
-        <div className="flex items-center gap-2 px-4 py-2 bg-rose-400 text-white text-xs font-semibold">
-          <XCircle className="w-3.5 h-3.5" />
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-rose-400 to-rose-500 text-white text-xs font-semibold">
+          <XCircle className="w-3.5 h-3.5 opacity-80" />
           Not Selected for This Event
         </div>
       )}
 
       {/* ── Collapsed content ─────────────────────────────────────────── */}
-      <div className="p-4 space-y-3">
+      <div className="px-4 pt-3.5 pb-4">
 
-        {/* Title + roles + chevron */}
+        {/* Title + chevron */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-base text-foreground leading-tight">{claim.eventTitle}</h3>
+            <h3 className="font-bold text-[17px] text-foreground leading-tight tracking-tight">
+              {claim.eventTitle}
+            </h3>
 
             {/* Clean role names — no tags in collapsed state */}
             {hasRolesData ? (
-              <div className="mt-0.5">
-                <p className="text-sm font-medium text-primary leading-snug">
+              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                <span className="text-sm font-semibold text-violet-600">
                   {claim.rolesWithPay![0].role}
-                </p>
-                {claim.rolesWithPay!.length > 1 && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    + {claim.rolesWithPay!.slice(1).map(r => r.role).join(", ")}
-                  </p>
-                )}
+                </span>
+                {claim.rolesWithPay!.slice(1).map((r, i) => (
+                  <span key={i} className="text-xs text-slate-400 font-medium">· {r.role}</span>
+                ))}
               </div>
             ) : (
-              <p className="text-sm font-medium text-primary mt-0.5">{claim.shiftRole}</p>
+              <p className="text-sm font-semibold text-violet-600 mt-1.5">{claim.shiftRole}</p>
             )}
 
-            {!isApproved && <AppliedAt date={claim.claimedAt} />}
+            {!isApproved && (
+              <p className="text-[11px] text-slate-400 mt-1 font-medium">
+                Applied {format(new Date(claim.claimedAt), "d MMM yyyy")}
+              </p>
+            )}
           </div>
 
-          {/* Chevron for accordion cards */}
+          {/* Circular chevron for accordion cards */}
           {isAccordion && (
-            <ChevronDown className={`w-4 h-4 text-muted-foreground/60 shrink-0 mt-1 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
+            <div className={`w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center shrink-0 mt-0.5 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}>
+              <ChevronDown className="w-4 h-4 text-slate-500" />
+            </div>
           )}
         </div>
 
-        {/* Date row */}
-        <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
+        {/* Thin divider */}
+        <div className="border-t border-slate-100 mt-3 mb-3" />
+
+        {/* Date + time row */}
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5">
           {dateRange && (
-            <span className="flex items-center gap-1.5">
-              <CalendarDays className="w-3.5 h-3.5 shrink-0" />
+            <span className="flex items-center gap-1.5 text-[13px] font-medium text-slate-500">
+              <CalendarDays className="w-3.5 h-3.5 shrink-0 text-slate-400" />
               {dateRange}
               {claim.eventDays && claim.eventDays > 1 && (
-                <span className="text-xs text-muted-foreground/70">({claim.eventDays} days)</span>
+                <span className="text-[12px] text-slate-400">({claim.eventDays} days)</span>
               )}
             </span>
           )}
           {!isCompleted && (claim.eventExpectedCheckIn || claim.eventExpectedCheckOut) && (
-            <span className="flex items-center gap-1.5">
-              <Timer className="w-3.5 h-3.5 shrink-0" />
+            <span className="flex items-center gap-1.5 text-[13px] font-medium text-slate-500">
+              <Timer className="w-3.5 h-3.5 shrink-0 text-slate-400" />
               {[claim.eventExpectedCheckIn, claim.eventExpectedCheckOut].filter(Boolean).join(" – ")}
             </span>
           )}
@@ -584,16 +593,16 @@ function EventCard({
 
         {/* Pay + perks chips */}
         {!isCompleted && (payText || claim.eventFoodProvided) && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 mt-2.5">
             {payText && (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700">
+              <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-slate-900 text-white">
                 <IndianRupee className="w-3 h-3" />
                 {payText}
               </span>
             )}
             {claim.eventFoodProvided && (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">
-                🍽 Food Provided{claim.eventMealsProvided ? ` – ${claim.eventMealsProvided}` : ""}
+              <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-600 text-white">
+                🍽{claim.eventMealsProvided ? ` ${claim.eventMealsProvided}` : " Food"}
               </span>
             )}
           </div>
