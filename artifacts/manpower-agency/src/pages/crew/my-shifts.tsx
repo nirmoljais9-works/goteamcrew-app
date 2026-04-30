@@ -79,6 +79,9 @@ type Claim = {
   totalPay: number;
   eventDays?: number;
   eventPayPerDay?: number;
+  payRangeMin?: number | null;
+  payRangeMax?: number | null;
+  myAppliedRoles?: string[];
   eventTitle: string;
   eventLocation?: string | null;
   eventCity?: string | null;
@@ -532,11 +535,17 @@ function EventCard({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {claim.totalPay > 0 && !isCompleted && (
+          {!isCompleted && (claim.payRangeMin != null || claim.totalPay > 0) && (
             <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700">
               <IndianRupee className="w-3 h-3" />
-              {claim.totalPay.toLocaleString("en-IN")}
-              {claim.eventDays && claim.eventDays > 1 && claim.eventPayPerDay ? ` (₹${claim.eventPayPerDay.toLocaleString("en-IN")}/day)` : ""}
+              {claim.payRangeMin != null
+                ? claim.payRangeMin === claim.payRangeMax
+                  ? `${claim.payRangeMin.toLocaleString("en-IN")}/day`
+                  : `${claim.payRangeMin.toLocaleString("en-IN")}–${claim.payRangeMax!.toLocaleString("en-IN")}/day`
+                : claim.eventDays && claim.eventDays > 1 && claim.eventPayPerDay
+                  ? `${claim.totalPay.toLocaleString("en-IN")} (₹${claim.eventPayPerDay.toLocaleString("en-IN")}/day)`
+                  : `${claim.totalPay.toLocaleString("en-IN")}`
+              }
             </span>
           )}
           {claim.eventFoodProvided && !isCompleted && (

@@ -270,6 +270,41 @@ router.put("/crew/profile", requireAuth, (req: any, res: any) => {
   });
 });
 
+/** Resolve per-day pay range for the specific roles a crew member applied for.
+ *  appliedRoles: ["Model", "Promoter"] — index 0 = preferred, 1 = backup
+ *  roleConfigs : parsed eventRoleConfigs array from the events table
+ *  Returns { min, max } per day, or null if no data is available.
+ */
+function computeRolePayRange(
+  appliedRoles: string[],
+  roleConfigs: any[]
+): { min: number; max: number } | null {
+  if (!appliedRoles.length || !roleConfigs.length) return null;
+  let min = Infinity, max = -Infinity;
+  for (const roleName of appliedRoles) {
+    const cfg = roleConfigs.find((c: any) =>
+      c.role && c.role.toString().toLowerCase().trim() === roleName.toLowerCase().trim()
+    );
+    if (!cfg) continue;
+    if (cfg.minPay != null) {
+      min = Math.min(min, Number(cfg.minPay));
+      max = Math.max(max, cfg.maxPay != null ? Number(cfg.maxPay) : Number(cfg.minPay));
+    } else if (cfg.pay != null) {
+      const v = Number(cfg.pay);
+      min = Math.min(min, v); max = Math.max(max, v);
+    } else {
+      const legacy = cfg.payFemale ?? cfg.payMale ?? null;
+      if (legacy != null) {
+        const parts = String(legacy).trim().split("-").map(Number).filter(n => !isNaN(n));
+        if (parts.length >= 2) { min = Math.min(min, parts[0]); max = Math.max(max, parts[1]); }
+        else if (parts.length === 1) { min = Math.min(min, parts[0]); max = Math.max(max, parts[0]); }
+      }
+    }
+  }
+  if (!isFinite(min) || !isFinite(max)) return null;
+  return { min, max };
+}
+
 router.get("/crew/shifts", requireAuth, async (req: any, res) => {
   try {
     const [profile] = await db.select().from(crewProfilesTable).where(eq(crewProfilesTable.userId, req.session.userId));
@@ -283,6 +318,7 @@ router.get("/crew/shifts", requireAuth, async (req: any, res) => {
         status: shiftClaimsTable.status,
         claimedAt: shiftClaimsTable.claimedAt,
         approvedAt: shiftClaimsTable.approvedAt,
+        appliedRoles: shiftClaimsTable.appliedRoles,
         shiftRole: shiftsTable.role,
         shiftStartTime: shiftsTable.startTime,
         shiftEndTime: shiftsTable.endTime,
@@ -294,8 +330,11 @@ router.get("/crew/shifts", requireAuth, async (req: any, res) => {
         eventEndDate: eventsTable.endDate,
         eventPayPerDay: eventsTable.payPerDay,
         eventPayFemale: eventsTable.payFemale,
+        eventPayFemaleMax: eventsTable.payFemaleMax,
         eventPayMale: eventsTable.payMale,
+        eventPayMaleMax: eventsTable.payMaleMax,
         eventPayFresher: eventsTable.payFresher,
+        eventRoleConfigs: eventsTable.roleConfigs,
         eventFoodProvided: eventsTable.foodProvided,
         eventMealsProvided: eventsTable.mealsProvided,
         eventDressCode: eventsTable.dressCode,
@@ -343,6 +382,11 @@ router.get("/crew/shifts", requireAuth, async (req: any, res) => {
       const computedTotalPay = payPerDay > 0 ? payPerDay * days : parseFloat(c.totalPay || "0");
       console.log(`[crew/shifts] claim=${c.id} event="${c.eventTitle}" eventLatitude=${c.eventLatitude ?? "NULL"} eventLongitude=${c.eventLongitude ?? "NULL"}`);
 
+      // Per-role per-day pay range for the specific roles this crew member applied for
+      const rawApplied: string[] = c.appliedRoles ? (() => { try { return JSON.parse(c.appliedRoles); } catch { return []; } })() : [];
+      const rawConfigs: any[]    = c.eventRoleConfigs ? (() => { try { return JSON.parse(c.eventRoleConfigs); } catch { return []; } })() : [];
+      const roleRange = computeRolePayRange(rawApplied, rawConfigs);
+
       // Always compute status dynamically from stored times — never rely on the
       // cached DB value so that admin time-edits are reflected immediately.
       const dynamicCheckInStatus  = computeCheckInStatus(c.checkedInAt,  c.eventExpectedCheckIn,  c.eventStartDate);
@@ -354,6 +398,9 @@ router.get("/crew/shifts", requireAuth, async (req: any, res) => {
         totalPay: computedTotalPay,
         eventDays: days,
         eventPayPerDay: payPerDay,
+        myAppliedRoles: rawApplied,
+        payRangeMin: roleRange?.min ?? null,
+        payRangeMax: roleRange?.max ?? null,
         checkInStatus:  dynamicCheckInStatus,
         checkOutStatus: dynamicCheckOutStatus,
       };
