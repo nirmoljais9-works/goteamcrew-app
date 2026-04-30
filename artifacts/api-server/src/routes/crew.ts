@@ -270,6 +270,35 @@ router.put("/crew/profile", requireAuth, (req: any, res: any) => {
   });
 });
 
+/** Build an array of applied roles enriched with their individual per-day pay range. */
+function buildRolesWithPay(
+  appliedRoles: string[],
+  roleConfigs: any[]
+): Array<{ role: string; type: "preferred" | "backup"; min: number | null; max: number | null }> {
+  return appliedRoles.map((roleName, idx) => {
+    const cfg = roleConfigs.find((c: any) =>
+      c.role && c.role.toString().toLowerCase().trim() === roleName.toLowerCase().trim()
+    );
+    let min: number | null = null, max: number | null = null;
+    if (cfg) {
+      if (cfg.minPay != null) {
+        min = Number(cfg.minPay);
+        max = cfg.maxPay != null ? Number(cfg.maxPay) : min;
+      } else if (cfg.pay != null) {
+        min = max = Number(cfg.pay);
+      } else {
+        const legacy = cfg.payFemale ?? cfg.payMale ?? null;
+        if (legacy != null) {
+          const parts = String(legacy).trim().split("-").map(Number).filter((n: number) => !isNaN(n));
+          if (parts.length >= 2) { min = parts[0]; max = parts[1]; }
+          else if (parts.length === 1) { min = max = parts[0]; }
+        }
+      }
+    }
+    return { role: roleName, type: idx === 0 ? "preferred" : "backup" as "preferred" | "backup", min, max };
+  });
+}
+
 /** Resolve per-day pay range for the specific roles a crew member applied for.
  *  appliedRoles: ["Model", "Promoter"] — index 0 = preferred, 1 = backup
  *  roleConfigs : parsed eventRoleConfigs array from the events table
@@ -401,6 +430,7 @@ router.get("/crew/shifts", requireAuth, async (req: any, res) => {
         myAppliedRoles: rawApplied,
         payRangeMin: roleRange?.min ?? null,
         payRangeMax: roleRange?.max ?? null,
+        rolesWithPay: buildRolesWithPay(rawApplied, rawConfigs),
         checkInStatus:  dynamicCheckInStatus,
         checkOutStatus: dynamicCheckOutStatus,
       };

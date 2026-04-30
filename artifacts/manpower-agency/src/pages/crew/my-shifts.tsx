@@ -82,6 +82,7 @@ type Claim = {
   payRangeMin?: number | null;
   payRangeMax?: number | null;
   myAppliedRoles?: string[];
+  rolesWithPay?: Array<{ role: string; type: "preferred" | "backup"; min: number | null; max: number | null }>;
   eventTitle: string;
   eventLocation?: string | null;
   eventCity?: string | null;
@@ -512,7 +513,19 @@ function EventCard({
       <div className="p-4 space-y-3">
         <div>
           <h3 className="font-bold text-base text-foreground leading-tight">{claim.eventTitle}</h3>
-          <p className="text-sm font-medium text-primary mt-0.5">{claim.shiftRole}</p>
+          {claim.rolesWithPay && claim.rolesWithPay.length > 0 ? (
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              <p className="text-sm font-semibold text-primary">{claim.rolesWithPay[0].role}</p>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">Preferred</span>
+              {claim.rolesWithPay.length > 1 && (
+                <span className="text-xs text-muted-foreground font-medium">
+                  +{claim.rolesWithPay.length - 1} Backup
+                </span>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm font-medium text-primary mt-0.5">{claim.shiftRole}</p>
+          )}
           {!isApproved && <AppliedAt date={claim.claimedAt} />}
         </div>
 
@@ -534,26 +547,57 @@ function EventCard({
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {!isCompleted && (claim.payRangeMin != null || claim.totalPay > 0) && (
-            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700">
-              <IndianRupee className="w-3 h-3" />
-              {claim.payRangeMin != null
-                ? claim.payRangeMin === claim.payRangeMax
-                  ? `${claim.payRangeMin.toLocaleString("en-IN")}/day`
-                  : `${claim.payRangeMin.toLocaleString("en-IN")}–${claim.payRangeMax!.toLocaleString("en-IN")}/day`
-                : claim.eventDays && claim.eventDays > 1 && claim.eventPayPerDay
-                  ? `${claim.totalPay.toLocaleString("en-IN")} (₹${claim.eventPayPerDay.toLocaleString("en-IN")}/day)`
-                  : `${claim.totalPay.toLocaleString("en-IN")}`
-              }
-            </span>
-          )}
-          {claim.eventFoodProvided && !isCompleted && (
-            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">
-              🍽 Food Provided{claim.eventMealsProvided ? ` – ${claim.eventMealsProvided}` : ""}
-            </span>
-          )}
-        </div>
+        {!isCompleted && (
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2">
+              {(claim.payRangeMin != null || claim.totalPay > 0) && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700">
+                  <IndianRupee className="w-3 h-3" />
+                  {claim.payRangeMin != null
+                    ? claim.payRangeMin === claim.payRangeMax
+                      ? `${claim.payRangeMin.toLocaleString("en-IN")}/day`
+                      : `${claim.payRangeMin.toLocaleString("en-IN")}–${claim.payRangeMax!.toLocaleString("en-IN")}/day`
+                    : claim.eventDays && claim.eventDays > 1 && claim.eventPayPerDay
+                      ? `${claim.totalPay.toLocaleString("en-IN")} (₹${claim.eventPayPerDay.toLocaleString("en-IN")}/day)`
+                      : `${claim.totalPay.toLocaleString("en-IN")}`
+                  }
+                </span>
+              )}
+              {claim.eventFoodProvided && (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">
+                  🍽 Food Provided{claim.eventMealsProvided ? ` – ${claim.eventMealsProvided}` : ""}
+                </span>
+              )}
+            </div>
+
+            {/* Per-role pay breakdown — shown when user applied for roles with known configs */}
+            {claim.rolesWithPay && claim.rolesWithPay.length > 0 && claim.rolesWithPay.some(r => r.min != null) && (
+              <div className="rounded-xl border border-border/40 bg-muted/20 overflow-hidden">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide px-3 pt-2 pb-1">Applied Roles</p>
+                {claim.rolesWithPay.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between px-3 py-1.5 border-t border-border/30 first:border-t-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs font-medium text-foreground truncate">{r.role}</span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                        r.type === "preferred" ? "bg-violet-100 text-violet-700" : "bg-slate-100 text-slate-500"
+                      }`}>
+                        {r.type === "preferred" ? "Preferred" : "Backup"}
+                      </span>
+                    </div>
+                    {r.min != null && (
+                      <span className="text-xs font-semibold text-indigo-600 shrink-0 ml-2">
+                        ₹{r.min === r.max
+                          ? r.min.toLocaleString("en-IN")
+                          : `${r.min.toLocaleString("en-IN")}–${r.max!.toLocaleString("en-IN")}`
+                        }/day
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Completed tab: work duration + payment status */}
         {isCompleted && isApproved && (
