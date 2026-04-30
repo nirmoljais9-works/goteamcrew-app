@@ -386,6 +386,7 @@ router.get("/crew/shifts", requireAuth, async (req: any, res) => {
         approvedPay: shiftClaimsTable.approvedPay,
         isOverride: shiftClaimsTable.isOverride,
         overrideReason: shiftClaimsTable.overrideReason,
+        withdrawalReason: shiftClaimsTable.withdrawalReason,
       })
       .from(shiftClaimsTable)
       .innerJoin(shiftsTable, eq(shiftClaimsTable.shiftId, shiftsTable.id))

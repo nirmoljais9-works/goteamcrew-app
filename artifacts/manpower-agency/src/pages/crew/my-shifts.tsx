@@ -105,6 +105,7 @@ type Claim = {
   approvedPay?: string | number | null;
   isOverride?: boolean;
   overrideReason?: string | null;
+  withdrawalReason?: string | null;
 };
 
 function fmtTime(ts: string | null | undefined) {
@@ -692,11 +693,11 @@ function EventCard({
   );
 }
 
-type TabKey = "ongoing" | "completed" | "applied" | "cancelled";
+type TabKey = "ongoing" | "completed" | "applied" | "history";
 
 const TAB_CONFIG: { key: TabKey; label: string; emptyMsg: string }[] = [
   { key: "applied",   label: "Applied",    emptyMsg: "No applied events yet." },
-  { key: "cancelled", label: "Cancelled/\nRejected",  emptyMsg: "No cancelled or rejected events." },
+  { key: "history",   label: "History",    emptyMsg: "No history yet." },
   { key: "ongoing",   label: "Ongoing",    emptyMsg: "No ongoing events." },
   { key: "completed", label: "Completed",  emptyMsg: "No completed events." },
 ];
@@ -705,68 +706,91 @@ const TAB_COLORS: Record<TabKey, { badge: string; dot: string }> = {
   ongoing:   { badge: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500 animate-pulse" },
   completed: { badge: "bg-slate-100 text-slate-600",     dot: "bg-slate-400" },
   applied:   { badge: "bg-amber-100 text-amber-700",     dot: "bg-amber-400" },
-  cancelled: { badge: "bg-rose-100 text-rose-700",       dot: "bg-rose-500" },
+  history:   { badge: "bg-slate-100 text-slate-600",     dot: "bg-slate-400" },
 };
 
-function CancelledRejectedContent({
-  claims, onDrop,
-}: {
-  claims: Claim[];
-  onDrop: (shiftId: number) => void;
-}) {
-  const [subTab, setSubTab] = useState<"cancelled" | "rejected">("cancelled");
-  const cancelled = claims.filter(c => c.status === "revoked");
-  const rejected  = claims.filter(c => c.status === "rejected");
-  const active    = subTab === "cancelled" ? cancelled : rejected;
+type HistorySubTab = "withdrawn" | "not-selected" | "cancelled";
+
+const HISTORY_SUB_TABS: { key: HistorySubTab; label: string; emptyMsg: string; desc: string }[] = [
+  {
+    key: "withdrawn",
+    label: "Withdrawn",
+    emptyMsg: "No withdrawn applications.",
+    desc: "Applications you chose to withdraw from.",
+  },
+  {
+    key: "not-selected",
+    label: "Not Selected",
+    emptyMsg: "No not-selected applications.",
+    desc: "The client selected other candidates for these events.",
+  },
+  {
+    key: "cancelled",
+    label: "Cancelled",
+    emptyMsg: "No cancelled events.",
+    desc: "These events were cancelled or removed by the organiser.",
+  },
+];
+
+function HistoryContent({ claims }: { claims: Claim[] }) {
+  // Withdrawn = user-initiated revoke (has a withdrawalReason)
+  const withdrawn   = claims.filter(c => c.status === "revoked" && c.withdrawalReason != null);
+  // Cancelled = admin/system revoke (no withdrawalReason)
+  const cancelled   = claims.filter(c => c.status === "revoked" && c.withdrawalReason == null);
+  const notSelected = claims.filter(c => c.status === "rejected");
+
+  const getCount = (key: HistorySubTab) =>
+    key === "withdrawn" ? withdrawn.length : key === "not-selected" ? notSelected.length : cancelled.length;
+
+  // Default to first sub-tab that has entries, else "withdrawn"
+  const defaultTab: HistorySubTab =
+    withdrawn.length > 0 ? "withdrawn" :
+    notSelected.length > 0 ? "not-selected" :
+    "cancelled";
+  const [subTab, setSubTab] = useState<HistorySubTab>(defaultTab);
+
+  const active = subTab === "withdrawn" ? withdrawn : subTab === "not-selected" ? notSelected : cancelled;
+  const cfg = HISTORY_SUB_TABS.find(t => t.key === subTab)!;
 
   return (
     <div className="space-y-4">
       {/* Sub-tabs */}
-      <div className="flex gap-2">
-        {(["cancelled", "rejected"] as const).map(key => {
-          const count = key === "cancelled" ? cancelled.length : rejected.length;
+      <div className="flex gap-1.5 flex-wrap">
+        {HISTORY_SUB_TABS.map(({ key, label }) => {
+          const count = getCount(key);
           const isActive = subTab === key;
           return (
             <button
               key={key}
               onClick={() => setSubTab(key)}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold border transition-all ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all ${
                 isActive
-                  ? key === "cancelled"
-                    ? "bg-rose-600 text-white border-rose-600"
-                    : "bg-orange-500 text-white border-orange-500"
+                  ? "bg-slate-700 text-white border-slate-700"
                   : "bg-white text-muted-foreground border-border hover:border-foreground/30"
               }`}
             >
-              {key === "cancelled" ? "Cancelled" : "Rejected"}
-              {count > 0 && (
-                <span className={`text-[10px] font-bold px-1 rounded-full ${isActive ? "bg-white/25 text-white" : "bg-muted text-muted-foreground"}`}>
-                  {count}
-                </span>
-              )}
+              {label}
+              <span className={`text-[10px] font-bold px-1 rounded-full ${
+                isActive ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+              }`}>
+                {count}
+              </span>
             </button>
           );
         })}
       </div>
 
-      {/* Sub-tab description */}
-      <p className="text-xs text-muted-foreground">
-        {subTab === "cancelled"
-          ? "Events you withdrew from, no-shows, or shifts removed by admin."
-          : "Applications that were not selected for the event."}
-      </p>
+      <p className="text-xs text-muted-foreground">{cfg.desc}</p>
 
       {active.length === 0 ? (
         <div className="text-center py-12 bg-card rounded-2xl border border-dashed flex flex-col items-center gap-2">
           <ClipboardList className="w-8 h-8 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">
-            {subTab === "cancelled" ? "No cancelled events." : "No rejected applications."}
-          </p>
+          <p className="text-sm text-muted-foreground">{cfg.emptyMsg}</p>
         </div>
       ) : (
         <div className="space-y-3">
           {active.map(c => (
-            <CancelledCard key={c.id} claim={c} type={subTab} />
+            <HistoryCard key={c.id} claim={c} type={subTab} />
           ))}
         </div>
       )}
@@ -774,42 +798,65 @@ function CancelledRejectedContent({
   );
 }
 
-function CancelledCard({ claim, type }: { claim: Claim; type: "cancelled" | "rejected" }) {
+function HistoryCard({ claim, type }: { claim: Claim; type: HistorySubTab }) {
   const dateRange = formatDateRange(claim.eventStartDate, claim.eventEndDate);
-  const isCancelled = type === "cancelled";
 
-  const defaultReason = isCancelled ? "Shift withdrawn" : "Position filled";
-  const reason = (claim as any).reason || defaultReason;
+  const configs: Record<HistorySubTab, {
+    headerBg: string; headerText: string;
+    cardBorder: string; cardBg: string;
+    label: string; subtext: string;
+    badge: string;
+  }> = {
+    withdrawn: {
+      headerBg: "bg-slate-200",   headerText: "text-slate-600",
+      cardBorder: "border-slate-200", cardBg: "bg-slate-50/40",
+      label: "Withdrawn",
+      subtext: claim.withdrawalReason ? `Reason: ${claim.withdrawalReason}` : "You withdrew from this event",
+      badge: "bg-slate-100 text-slate-500",
+    },
+    "not-selected": {
+      headerBg: "bg-slate-300",   headerText: "text-slate-700",
+      cardBorder: "border-slate-200", cardBg: "bg-white",
+      label: "Not Selected",
+      subtext: "Client selected other candidates",
+      badge: "bg-slate-100 text-slate-500",
+    },
+    cancelled: {
+      headerBg: "bg-orange-100",  headerText: "text-orange-700",
+      cardBorder: "border-orange-100", cardBg: "bg-orange-50/30",
+      label: "Cancelled",
+      subtext: "Event was cancelled",
+      badge: "bg-orange-100 text-orange-600",
+    },
+  };
+
+  const c = configs[type];
 
   return (
-    <div className={`rounded-xl border overflow-hidden ${isCancelled ? "border-rose-100 bg-rose-50/30" : "border-orange-100 bg-orange-50/20"}`}>
-      <div className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold ${isCancelled ? "bg-rose-500 text-white" : "bg-orange-400 text-white"}`}>
-        {isCancelled ? <XCircle className="w-3 h-3" /> : <Clock4 className="w-3 h-3" />}
-        {isCancelled ? "Cancelled" : "Rejected"}
+    <div className={`rounded-xl border overflow-hidden ${c.cardBorder} ${c.cardBg}`}>
+      <div className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold ${c.headerBg} ${c.headerText}`}>
+        {type === "withdrawn" && <CheckCircle2 className="w-3 h-3 opacity-60" />}
+        {type === "not-selected" && <XCircle className="w-3 h-3 opacity-60" />}
+        {type === "cancelled" && <Clock4 className="w-3 h-3 opacity-60" />}
+        {c.label}
       </div>
-      <div className="px-3 py-3 flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1 space-y-1">
-          <p className="font-semibold text-sm text-foreground leading-tight truncate">{claim.eventTitle}</p>
-          <p className="text-xs text-primary font-medium">{claim.shiftRole}</p>
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
-            {(claim.eventCity || claim.eventLocation) && (
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3 h-3" />
-                {claim.eventCity || claim.eventLocation}
-              </span>
-            )}
-            {dateRange && (
-              <span className="flex items-center gap-1">
-                <CalendarDays className="w-3 h-3" /> {dateRange}
-              </span>
-            )}
-          </div>
+      <div className="px-3 py-3 space-y-1">
+        <p className="font-semibold text-sm text-foreground leading-tight">{claim.eventTitle}</p>
+        <p className="text-xs text-muted-foreground font-medium">{claim.shiftRole}</p>
+        <p className="text-xs text-muted-foreground/70 italic">{c.subtext}</p>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1.5 pt-1 border-t border-slate-100">
+          {(claim.eventCity || claim.eventLocation) && (
+            <span className="flex items-center gap-1">
+              <MapPin className="w-3 h-3" />
+              {claim.eventCity || claim.eventLocation}
+            </span>
+          )}
+          {dateRange && (
+            <span className="flex items-center gap-1">
+              <CalendarDays className="w-3 h-3" /> {dateRange}
+            </span>
+          )}
         </div>
-        <span className={`shrink-0 text-[10px] font-bold px-2 py-1 rounded-full whitespace-nowrap mt-0.5 ${
-          isCancelled ? "bg-rose-100 text-rose-700" : "bg-orange-100 text-orange-700"
-        }`}>
-          {reason}
-        </span>
       </div>
     </div>
   );
@@ -936,7 +983,7 @@ export default function MyShifts() {
   const [, navigate] = useLocation();
   const search = useSearch();
   const tabParam = new URLSearchParams(search).get("tab") as TabKey | null;
-  const validTabs: TabKey[] = ["ongoing", "completed", "applied", "cancelled"];
+  const validTabs: TabKey[] = ["ongoing", "completed", "applied", "history"];
   const activeTab: TabKey = tabParam && validTabs.includes(tabParam) ? tabParam : "ongoing";
   const setActiveTab = (tab: TabKey) => navigate(`/my-shifts?tab=${tab}`);
 
@@ -983,11 +1030,11 @@ export default function MyShifts() {
   const allClaims: Claim[] = shifts || [];
 
   // Partition claims into 4 tabs
-  const byTab: Record<TabKey, Claim[]> = { ongoing: [], completed: [], applied: [], cancelled: [] };
+  const byTab: Record<TabKey, Claim[]> = { ongoing: [], completed: [], applied: [], history: [] };
 
   allClaims.forEach(c => {
     if (c.status === "rejected" || c.status === "revoked") {
-      byTab.cancelled.push(c);
+      byTab.history.push(c);
       return;
     }
     if (c.status === "pending") {
@@ -1041,11 +1088,8 @@ export default function MyShifts() {
       </div>
 
       {/* Tab content */}
-      {activeTab === "cancelled" ? (
-        <CancelledRejectedContent
-          claims={tabClaims}
-          onDrop={(shiftId) => setDropShiftId(shiftId)}
-        />
+      {activeTab === "history" ? (
+        <HistoryContent claims={tabClaims} />
       ) : tabClaims.length === 0 ? (
         <div className="text-center py-16 bg-card rounded-3xl border border-dashed flex flex-col items-center gap-3">
           <ClipboardList className="w-10 h-10 text-muted-foreground/40" />
