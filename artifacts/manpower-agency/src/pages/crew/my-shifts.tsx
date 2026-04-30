@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import {
   MapPin, CalendarDays, IndianRupee, CheckCircle2, Clock4, XCircle, Shirt,
-  ClipboardList, ChevronRight, Zap, Timer, LogIn, Coffee, RefreshCw, LogOut, UserX,
+  ClipboardList, ChevronRight, ChevronDown, Zap, Timer, LogIn, Coffee, RefreshCw, LogOut, UserX,
   Camera, Loader2, AlertCircle,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -464,13 +464,33 @@ function EventCard({
   const showAttendance = isApproved && isOngoing && !!onRefresh;
   const cardClickable = !!onClick && !isCompleted;
 
+  // Accordion only for applied (pending) cards in the Applied tab
+  const isAccordion = isPending && !!onDrop;
+  const [expanded, setExpanded] = useState(false);
+
   const workDuration = workingHours(claim.checkedInAt, claim.checkOutAt, claim.totalBreakMinutes || 0);
   const hasPay = claim.attendanceApproved === true && claim.approvedPay != null;
   const payPending = isApproved && claim.checkedInAt && claim.checkOutAt && !hasPay;
 
+  const handleTap = isAccordion
+    ? () => setExpanded(p => !p)
+    : cardClickable ? onClick : undefined;
+  const tappable = isAccordion || cardClickable;
+
+  // Pay pill text
+  const payText = claim.payRangeMin != null
+    ? claim.payRangeMin === claim.payRangeMax
+      ? `${claim.payRangeMin.toLocaleString("en-IN")}/day`
+      : `${claim.payRangeMin.toLocaleString("en-IN")}–${claim.payRangeMax!.toLocaleString("en-IN")}/day`
+    : claim.eventDays && claim.eventDays > 1 && claim.eventPayPerDay
+      ? `${claim.totalPay.toLocaleString("en-IN")} (₹${claim.eventPayPerDay.toLocaleString("en-IN")}/day)`
+      : claim.totalPay > 0 ? `${claim.totalPay.toLocaleString("en-IN")}` : null;
+
+  const hasRolesData = (claim.rolesWithPay?.length ?? 0) > 0;
+
   return (
     <div
-      className={`rounded-2xl border overflow-hidden transition-all duration-200 ${
+      className={`rounded-2xl border overflow-hidden transition-shadow duration-200 ${
         isCompleted
           ? "border-slate-200 bg-slate-50/40"
           : isApproved
@@ -478,8 +498,8 @@ function EventCard({
           : isRejected
           ? "border-rose-100 bg-rose-50/20 opacity-80"
           : "border-border/60 bg-card"
-      } ${cardClickable ? "cursor-pointer active:scale-[0.99]" : ""}`}
-      onClick={cardClickable ? onClick : undefined}
+      } ${tappable ? "cursor-pointer" : ""}`}
+      onClick={handleTap}
     >
       {/* Header banner */}
       {isCompleted ? (
@@ -510,26 +530,41 @@ function EventCard({
         </div>
       )}
 
+      {/* ── Collapsed content ─────────────────────────────────────────── */}
       <div className="p-4 space-y-3">
-        <div>
-          <h3 className="font-bold text-base text-foreground leading-tight">{claim.eventTitle}</h3>
-          {claim.rolesWithPay && claim.rolesWithPay.length > 0 ? (
-            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-              <p className="text-sm font-semibold text-primary">{claim.rolesWithPay[0].role}</p>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">Preferred</span>
-              {claim.rolesWithPay.length > 1 && (
-                <span className="text-xs text-muted-foreground font-medium">
-                  +{claim.rolesWithPay.length - 1} Backup
-                </span>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm font-medium text-primary mt-0.5">{claim.shiftRole}</p>
+
+        {/* Title + roles + chevron */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-base text-foreground leading-tight">{claim.eventTitle}</h3>
+
+            {/* Clean role names — no tags in collapsed state */}
+            {hasRolesData ? (
+              <div className="mt-0.5">
+                <p className="text-sm font-medium text-primary leading-snug">
+                  {claim.rolesWithPay![0].role}
+                </p>
+                {claim.rolesWithPay!.length > 1 && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    + {claim.rolesWithPay!.slice(1).map(r => r.role).join(", ")}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm font-medium text-primary mt-0.5">{claim.shiftRole}</p>
+            )}
+
+            {!isApproved && <AppliedAt date={claim.claimedAt} />}
+          </div>
+
+          {/* Chevron for accordion cards */}
+          {isAccordion && (
+            <ChevronDown className={`w-4 h-4 text-muted-foreground/60 shrink-0 mt-1 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
           )}
-          {!isApproved && <AppliedAt date={claim.claimedAt} />}
         </div>
 
-        <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground">
+        {/* Date row */}
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
           {dateRange && (
             <span className="flex items-center gap-1.5">
               <CalendarDays className="w-3.5 h-3.5 shrink-0" />
@@ -547,19 +582,13 @@ function EventCard({
           )}
         </div>
 
-        {!isCompleted && (
+        {/* Pay + perks chips */}
+        {!isCompleted && (payText || claim.eventFoodProvided) && (
           <div className="flex flex-wrap gap-2">
-            {(claim.payRangeMin != null || claim.totalPay > 0) && (
+            {payText && (
               <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700">
                 <IndianRupee className="w-3 h-3" />
-                {claim.payRangeMin != null
-                  ? claim.payRangeMin === claim.payRangeMax
-                    ? `${claim.payRangeMin.toLocaleString("en-IN")}/day`
-                    : `${claim.payRangeMin.toLocaleString("en-IN")}–${claim.payRangeMax!.toLocaleString("en-IN")}/day`
-                  : claim.eventDays && claim.eventDays > 1 && claim.eventPayPerDay
-                    ? `${claim.totalPay.toLocaleString("en-IN")} (₹${claim.eventPayPerDay.toLocaleString("en-IN")}/day)`
-                    : `${claim.totalPay.toLocaleString("en-IN")}`
-                }
+                {payText}
               </span>
             )}
             {claim.eventFoodProvided && (
@@ -570,7 +599,7 @@ function EventCard({
           </div>
         )}
 
-        {/* Completed tab: work duration + payment status */}
+        {/* Completed: work duration + payment */}
         {isCompleted && isApproved && (
           <div className="rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
             {workDuration && (
@@ -602,18 +631,53 @@ function EventCard({
         {showAttendance && (
           <AttendanceButtons claim={claim} onRefresh={onRefresh!} />
         )}
+      </div>
 
-        {/* Withdraw only for upcoming pending */}
-        {isPending && !isCompleted && onDrop && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-8 px-3 text-xs w-full mt-1"
-            onClick={(e) => { e.stopPropagation(); onDrop(claim.shiftId); }}
-          >
-            Withdraw Application
-          </Button>
-        )}
+      {/* ── Accordion expanded section ─────────────────────────────────── */}
+      <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+        <div className="overflow-hidden">
+          <div className="border-t border-border/40 px-4 pt-3 pb-4 space-y-3 bg-muted/10">
+
+            {/* Per-role breakdown */}
+            {hasRolesData && (
+              <div className="space-y-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Applied Roles</p>
+                {claim.rolesWithPay!.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm font-semibold text-foreground truncate">{r.role}</span>
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                        i === 0 ? "bg-violet-100 text-violet-700" : "bg-slate-100 text-slate-500"
+                      }`}>
+                        {i === 0 ? "Preferred" : "Backup"}
+                      </span>
+                    </div>
+                    {r.min != null && (
+                      <span className="text-xs font-semibold text-indigo-600 shrink-0">
+                        ₹{r.min === r.max
+                          ? r.min.toLocaleString("en-IN")
+                          : `${r.min.toLocaleString("en-IN")}–${r.max!.toLocaleString("en-IN")}`
+                        }/day
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Withdraw button */}
+            {onDrop && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-8 px-3 text-xs w-full"
+                onClick={(e) => { e.stopPropagation(); onDrop(claim.shiftId); }}
+              >
+                Withdraw Application
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
