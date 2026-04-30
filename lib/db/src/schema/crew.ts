@@ -68,6 +68,8 @@ export const crewProfilesTable = pgTable("crew_profiles", {
   walletBalance: numeric("wallet_balance", { precision: 10, scale: 2 }).notNull().default("0"),
   totalReferrals: integer("total_referrals").notNull().default(0),
   successfulReferrals: integer("successful_referrals").notNull().default(0),
+  withdrawalCount: integer("withdrawal_count").notNull().default(0),
+  lastWithdrawnAt: timestamp("last_withdrawn_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({

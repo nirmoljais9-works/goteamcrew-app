@@ -605,14 +605,36 @@ router.post("/shifts/:id/claim", requireAuth, requireNotBlacklisted, async (req:
 router.post("/shifts/:id/unclaim", requireAuth, async (req: any, res) => {
   try {
     const shiftId = parseInt(req.params.id);
+    const reason: string | undefined = req.body?.reason;
+
     const [profile] = await db.select().from(crewProfilesTable).where(eq(crewProfilesTable.userId, req.session.userId));
     if (!profile) return res.status(404).json({ error: "Profile not found" });
 
-    await db.delete(shiftClaimsTable)
+    const [existing] = await db.select({ id: shiftClaimsTable.id, status: shiftClaimsTable.status })
+      .from(shiftClaimsTable)
       .where(and(eq(shiftClaimsTable.shiftId, shiftId), eq(shiftClaimsTable.crewId, profile.id)));
 
+    if (!existing) return res.status(404).json({ error: "Application not found" });
+
+    await db.update(shiftClaimsTable)
+      .set({
+        status: "revoked",
+        withdrawalReason: reason ?? null,
+        updatedAt: new Date(),
+      })
+      .where(eq(shiftClaimsTable.id, existing.id));
+
+    await db.update(crewProfilesTable)
+      .set({
+        withdrawalCount: sql`${crewProfilesTable.withdrawalCount} + 1`,
+        lastWithdrawnAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(crewProfilesTable.id, profile.id));
+
     res.json({ success: true });
-  } catch {
+  } catch (err) {
+    console.error("Unclaim error:", err);
     res.status(500).json({ error: "Server error" });
   }
 });

@@ -1712,11 +1712,14 @@ export const getUnclaimShiftUrl = (id: number) => {
 
 export const unclaimShift = async (
   id: number,
+  data?: { reason?: string },
   options?: RequestInit,
 ): Promise<void> => {
   return customFetch<void>(getUnclaimShiftUrl(id), {
     ...options,
     method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(data ?? {}),
   });
 };
 
@@ -1727,14 +1730,14 @@ export const getUnclaimShiftMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof unclaimShift>>,
     TError,
-    { id: number },
+    { id: number; data?: { reason?: string } },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof unclaimShift>>,
   TError,
-  { id: number },
+  { id: number; data?: { reason?: string } },
   TContext
 > => {
   const mutationKey = ["unclaimShift"];
@@ -1748,11 +1751,11 @@ export const getUnclaimShiftMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof unclaimShift>>,
-    { id: number }
+    { id: number; data?: { reason?: string } }
   > = (props) => {
-    const { id } = props ?? {};
+    const { id, data } = props ?? {};
 
-    return unclaimShift(id, requestOptions);
+    return unclaimShift(id, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -1774,14 +1777,14 @@ export const useUnclaimShift = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof unclaimShift>>,
     TError,
-    { id: number },
+    { id: number; data?: { reason?: string } },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof unclaimShift>>,
   TError,
-  { id: number },
+  { id: number; data?: { reason?: string } },
   TContext
 > => {
   return useMutation(getUnclaimShiftMutationOptions(options));

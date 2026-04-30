@@ -59,6 +59,7 @@ export const shiftClaimsTable = pgTable("shift_claims", {
   distanceFromEvent: numeric("distance_from_event", { precision: 10, scale: 2 }),
   appliedRoles: text("applied_roles"),
   assignedRole: text("assigned_role"),
+  withdrawalReason: text("withdrawal_reason"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 

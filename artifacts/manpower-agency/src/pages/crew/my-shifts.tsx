@@ -815,6 +815,116 @@ function CancelledCard({ claim, type }: { claim: Claim; type: "cancelled" | "rej
   );
 }
 
+const WITHDRAW_REASONS = [
+  "Got another event",
+  "Not available on dates",
+  "Pay not suitable",
+  "Location issue",
+  "Other",
+] as const;
+
+function WithdrawModal({
+  open, onClose, onConfirm, loading,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+  loading: boolean;
+}) {
+  const [selected, setSelected] = useState<string>("");
+  const [other, setOther] = useState("");
+
+  const handleClose = () => { setSelected(""); setOther(""); onClose(); };
+  const handleConfirm = () => {
+    if (!selected) return;
+    const reason = selected === "Other" ? (other.trim() || "Other") : selected;
+    onConfirm(reason);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
+      <DialogContent className="max-w-[340px] rounded-2xl p-0 overflow-hidden">
+        <div className="px-5 pt-5 pb-2">
+          <DialogTitle className="text-base font-bold text-foreground">Withdraw Application</DialogTitle>
+        </div>
+
+        <div className="px-5 space-y-4 pb-5">
+          {/* Warning box */}
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 space-y-1.5">
+            <p className="text-[13px] font-semibold text-amber-800 flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" /> Before you continue
+            </p>
+            <p className="text-[12px] text-amber-700 leading-relaxed">
+              Withdrawing may impact your profile reliability and future selection chances.
+            </p>
+            <p className="text-[11px] text-amber-600/80 leading-relaxed">
+              Frequent withdrawals may reduce your visibility for upcoming events.
+            </p>
+          </div>
+
+          {/* Reason picker */}
+          <div className="space-y-1">
+            <p className="text-[13px] font-semibold text-foreground mb-2">Why are you withdrawing?</p>
+            {WITHDRAW_REASONS.map((reason) => (
+              <button
+                key={reason}
+                type="button"
+                onClick={() => setSelected(reason)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-colors ${
+                  selected === reason
+                    ? "border-slate-400 bg-slate-50"
+                    : "border-slate-100 hover:border-slate-200 hover:bg-slate-50/50"
+                }`}
+              >
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                  selected === reason ? "border-slate-700" : "border-slate-300"
+                }`}>
+                  {selected === reason && (
+                    <div className="w-2 h-2 rounded-full bg-slate-700" />
+                  )}
+                </div>
+                <span className="text-[13px] text-foreground">{reason}</span>
+              </button>
+            ))}
+
+            {selected === "Other" && (
+              <textarea
+                className="w-full mt-1.5 text-[13px] border border-slate-200 rounded-xl px-3 py-2.5 resize-none placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-300 bg-white"
+                rows={2}
+                placeholder="Tell us a bit more (optional)..."
+                value={other}
+                onChange={(e) => setOther(e.target.value)}
+              />
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 h-9 text-[13px]"
+              onClick={handleClose}
+              disabled={loading}
+            >
+              Keep Application
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 h-9 text-[13px] border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 disabled:opacity-40"
+              onClick={handleConfirm}
+              disabled={!selected || loading}
+            >
+              {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Confirm Withdrawal"}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function MyShifts() {
   const { data: shifts, isLoading, refetch } = useGetMyShifts({
     query: { queryKey: getGetMyShiftsQueryKey(), refetchInterval: 30_000 },
@@ -845,9 +955,9 @@ export default function MyShifts() {
     });
   }, [shifts]);
 
-  const confirmUnclaim = () => {
+  const confirmUnclaim = (reason: string) => {
     if (dropShiftId === null) return;
-    unclaimMutation.mutate({ id: dropShiftId }, {
+    unclaimMutation.mutate({ id: dropShiftId, data: { reason } }, {
       onSuccess: () => {
         toast({ title: "Application withdrawn" });
         setDropShiftId(null);
@@ -962,25 +1072,12 @@ export default function MyShifts() {
         </div>
       )}
 
-      <AlertDialog open={dropShiftId !== null} onOpenChange={(o) => { if (!o) setDropShiftId(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Withdraw this application?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to withdraw your application? You may not be able to re-apply.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep Application</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-rose-600 hover:bg-rose-700 text-white"
-              onClick={confirmUnclaim}
-            >
-              Withdraw
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <WithdrawModal
+        open={dropShiftId !== null}
+        onClose={() => setDropShiftId(null)}
+        onConfirm={confirmUnclaim}
+        loading={unclaimMutation.isPending}
+      />
     </div>
   );
 }
