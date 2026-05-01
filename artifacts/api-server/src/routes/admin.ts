@@ -171,6 +171,7 @@ router.get("/admin/crew", requireAdmin, async (req: any, res) => {
         panCardUrl: crewProfilesTable.panCardUrl,
         source: crewProfilesTable.heardAboutUs,
         status: usersTable.status,
+        tempApproved: crewProfilesTable.tempApproved,
         totalEarnings: crewProfilesTable.totalEarnings,
         completedShifts: crewProfilesTable.completedShifts,
         createdAt: usersTable.createdAt,
@@ -529,6 +530,20 @@ router.post("/admin/crew/:id/approve", requireAdmin, async (req: any, res) => {
     if (!profile) return res.status(404).json({ error: "Crew not found" });
     await db.update(usersTable).set({ status: "approved", updatedAt: new Date() }).where(eq(usersTable.id, profile.userId));
     res.json({ success: true });
+  } catch {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ─── Temp Approve (toggle profile-only access for pending crew) ───────────────
+router.patch("/admin/crew/:id/temp-approve", requireAdmin, async (req: any, res) => {
+  try {
+    const crewId = parseInt(req.params.id);
+    const [profile] = await db.select().from(crewProfilesTable).where(eq(crewProfilesTable.id, crewId));
+    if (!profile) return res.status(404).json({ error: "Crew not found" });
+    const newValue = !profile.tempApproved;
+    await db.update(crewProfilesTable).set({ tempApproved: newValue }).where(eq(crewProfilesTable.id, crewId));
+    res.json({ success: true, tempApproved: newValue });
   } catch {
     res.status(500).json({ error: "Server error" });
   }

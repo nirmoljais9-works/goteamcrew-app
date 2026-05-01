@@ -37,6 +37,7 @@ export interface User {
   createdAt: string;
   rejectionReason?: string;
   crewProfileId?: number;
+  tempApproved?: boolean;
 }
 
 export interface LoginRequest {

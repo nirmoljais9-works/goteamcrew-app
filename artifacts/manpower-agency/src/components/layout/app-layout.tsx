@@ -52,15 +52,48 @@ function CrewStatusSidebarHint() {
 
 interface AppLayoutProps {
   children: ReactNode;
+  tempApprovedMode?: boolean;
 }
 
-export function AppLayout({ children }: AppLayoutProps) {
+export function AppLayout({ children, tempApprovedMode = false }: AppLayoutProps) {
   const { user, logout } = useAuth();
   const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const isAdmin = user?.role === "admin";
   const isBlacklisted = !isAdmin && user?.status === "blacklisted";
+
+  // ── Temp-approved mode: minimal shell with no nav ──────────────────────
+  if (tempApprovedMode) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        {/* Minimal top bar */}
+        <div className="sticky top-0 z-30 bg-white border-b border-border/60 px-5 py-3 flex items-center justify-between shadow-sm">
+          <img
+            src={`${import.meta.env.BASE_URL}images/goteamcrew-logo.png`}
+            alt="Goteamcrew"
+            className="h-8 w-auto object-contain"
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground gap-1.5 text-xs h-8"
+            onClick={logout}
+          >
+            <LogOut className="w-3.5 h-3.5" /> Sign out
+          </Button>
+        </div>
+        {/* Profile-access notice banner */}
+        <div className="bg-amber-50 border-b border-amber-200 px-5 py-2.5 flex items-center gap-2.5 text-xs text-amber-800">
+          <ShieldAlert className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+          <span>Your profile is being reviewed. You can complete your profile while you wait.</span>
+        </div>
+        <div className="flex-1 p-4 md:p-8 lg:p-10 max-w-4xl mx-auto w-full">
+          {children}
+        </div>
+      </div>
+    );
+  }
 
   const crewLinks = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, blocked: isBlacklisted },

@@ -70,6 +70,7 @@ export const crewProfilesTable = pgTable("crew_profiles", {
   successfulReferrals: integer("successful_referrals").notNull().default(0),
   withdrawalCount: integer("withdrawal_count").notNull().default(0),
   lastWithdrawnAt: timestamp("last_withdrawn_at"),
+  tempApproved: boolean("temp_approved").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({

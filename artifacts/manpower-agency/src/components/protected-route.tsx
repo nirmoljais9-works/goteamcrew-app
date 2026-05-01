@@ -158,6 +158,12 @@ export function ProtectedRoute({ children, allowedRole }: ProtectedRouteProps) {
     // Blacklisted crew may only access /earnings
     if (user.role === "crew" && user.status === "blacklisted" && location !== "/earnings") {
       setLocation("/earnings");
+      return;
+    }
+
+    // Temp-approved crew may only access /profile
+    if (user.role === "crew" && user.tempApproved && location !== "/profile") {
+      setLocation("/profile");
     }
   }, [isLoading, user, allowedRole, location]);
 
@@ -174,12 +180,13 @@ export function ProtectedRoute({ children, allowedRole }: ProtectedRouteProps) {
   if (allowedRole && user.role !== allowedRole) return spinner;
 
   // ── Status gating for crew users ────────────────────────────────────────
-  // Pending/resubmitted crew are ALWAYS blocked — no bypass allowed.
-  // They must wait for admin approval before accessing any crew page.
   if (user.role === "crew") {
     const status = user.status;
 
-    if (status === "pending" || status === "resubmitted") {
+    // Temp-approved: allow through, but AppLayout hides navigation
+    const isTempApproved = !!user.tempApproved;
+
+    if (!isTempApproved && (status === "pending" || status === "resubmitted")) {
       return <PendingScreen onLogout={logout} />;
     }
 
@@ -194,5 +201,5 @@ export function ProtectedRoute({ children, allowedRole }: ProtectedRouteProps) {
     }
   }
 
-  return <AppLayout>{children}</AppLayout>;
+  return <AppLayout tempApprovedMode={!!(user.role === "crew" && user.tempApproved)}>{children}</AppLayout>;
 }

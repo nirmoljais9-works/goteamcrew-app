@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Download, Check, X, Ban, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, RotateCcw, MoreVertical, AlertTriangle, MapPin, CalendarDays, Briefcase, Users, Gift, ExternalLink } from "lucide-react";
+import { Search, Download, Check, X, Ban, ChevronUp, ChevronDown, ChevronsUpDown, Trash2, RotateCcw, MoreVertical, AlertTriangle, MapPin, CalendarDays, Briefcase, Users, Gift, ExternalLink, Clock } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { CrewProfileModal } from "./crew-profile-modal";
@@ -201,6 +201,21 @@ export default function AdminCrew() {
         toast({ variant: "destructive", title: "Failed to approve" });
       },
     });
+  };
+
+  const handleTempApprove = async (crewId: number, name: string, currentTempApproved: boolean) => {
+    const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+    try {
+      const res = await fetch(`${BASE_URL}/api/admin/crew/${crewId}/temp-approve`, {
+        method: "PATCH", credentials: "include",
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/crew"] });
+      toast({ title: data.tempApproved ? `✓ ${name} can now edit their profile` : `${name} temp access removed` });
+    } catch {
+      toast({ variant: "destructive", title: "Failed to update" });
+    }
   };
 
   const handleDoReject = async () => {
@@ -530,6 +545,24 @@ export default function AdminCrew() {
                                   >
                                     <Check className="w-3.5 h-3.5" /> Approve
                                   </DropdownMenuItem>
+                                )}
+                                {/* Temp Approve — profile-only access for pending/resubmitted crew */}
+                                {(crew.status === "pending" || crew.status === "resubmitted") && (
+                                  (crew as any).tempApproved ? (
+                                    <DropdownMenuItem
+                                      className="flex items-center gap-2 text-xs rounded-lg px-3 py-2 cursor-pointer text-violet-700 bg-violet-50 hover:bg-violet-100 focus:bg-violet-100 font-medium"
+                                      onClick={() => handleTempApprove(crew.id, crew.name, true)}
+                                    >
+                                      <Clock className="w-3.5 h-3.5" /> Profile Access ✓
+                                    </DropdownMenuItem>
+                                  ) : (
+                                    <DropdownMenuItem
+                                      className="flex items-center gap-2 text-xs rounded-lg px-3 py-2 cursor-pointer text-violet-600 hover:bg-violet-50 focus:bg-violet-50"
+                                      onClick={() => handleTempApprove(crew.id, crew.name, false)}
+                                    >
+                                      <Clock className="w-3.5 h-3.5" /> Temp Approve
+                                    </DropdownMenuItem>
+                                  )
                                 )}
                                 {/* Reject */}
                                 {crew.status === "rejected" || crew.status === "resubmitted" ? (

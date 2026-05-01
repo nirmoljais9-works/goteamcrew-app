@@ -121,6 +121,7 @@ router.get("/auth/me", (req, res) => {
     createdAt: usersTable.createdAt,
     rejectionReason: crewProfilesTable.rejectionReason,
     crewProfileId: crewProfilesTable.id,
+    tempApproved: crewProfilesTable.tempApproved,
   })
   .from(usersTable)
   .leftJoin(crewProfilesTable, eq(crewProfilesTable.userId, usersTable.id))
@@ -136,6 +137,7 @@ router.get("/auth/me", (req, res) => {
       createdAt: row.createdAt,
       rejectionReason: row.rejectionReason ?? null,
       crewProfileId: row.crewProfileId ?? null,
+      tempApproved: row.tempApproved ?? false,
     });
   }).catch(() => res.status(500).json({ error: "Server error" }));
 });
