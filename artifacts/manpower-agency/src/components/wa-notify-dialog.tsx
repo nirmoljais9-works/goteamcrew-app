@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 interface WaNotifyDialogProps {
   waUrl: string | null;
   name: string;
-  action: "approve" | "reject";
+  action: "approve" | "reject" | "temp-approve";
   onSend: () => void;
   onSkip: () => void;
 }
@@ -25,6 +25,8 @@ export function WaNotifyDialog({ waUrl, name, action, onSend, onSkip }: WaNotify
         <p className="text-sm text-muted-foreground px-1">
           {action === "approve"
             ? `Notify ${name} that their profile has been approved and they can now log in.`
+            : action === "temp-approve"
+            ? `Notify ${name} that they can now log in and complete their profile.`
             : `Notify ${name} that their profile was not approved, with a link to update and reapply.`}
         </p>
         <DialogFooter className="gap-2 flex-col sm:flex-row">

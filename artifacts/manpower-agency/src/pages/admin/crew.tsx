@@ -102,7 +102,7 @@ export default function AdminCrew() {
   const [rejectTarget, setRejectTarget] = useState<{ id: number; name: string; phone: string } | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejectLoading, setRejectLoading] = useState(false);
-  const [pendingWa, setPendingWa] = useState<{ url: string; action: "approve" | "reject"; name: string } | null>(null);
+  const [pendingWa, setPendingWa] = useState<{ url: string; action: "approve" | "reject" | "temp-approve"; name: string } | null>(null);
 
   const [removeTarget, setRemoveTarget] = useState<{ id: number; name: string } | null>(null);
   const [removeLoading, setRemoveLoading] = useState(false);
@@ -189,6 +189,12 @@ export default function AdminCrew() {
     return `https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`;
   };
 
+  const buildWaTempApproveUrl = (phone: string, name: string) => {
+    const waPhone = formatWaPhone(phone);
+    const msg = `Hi ${name},\n\nYou can now log in to Goteamcrew and complete your profile — add your portfolio photos, intro video, and other details.\n\nLog in here:\nhttps://goteamcrew.com/login\n\n– Team Goteamcrew`;
+    return `https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`;
+  };
+
   const handleApprove = (crewId: number, name: string, phone: string) => {
     approveMutation.mutate({ id: crewId }, {
       onSuccess: () => {
@@ -203,7 +209,7 @@ export default function AdminCrew() {
     });
   };
 
-  const handleTempApprove = async (crewId: number, name: string, currentTempApproved: boolean) => {
+  const handleTempApprove = async (crewId: number, name: string, phone: string, currentTempApproved: boolean) => {
     const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
     try {
       const res = await fetch(`${BASE_URL}/api/admin/crew/${crewId}/temp-approve`, {
@@ -212,7 +218,12 @@ export default function AdminCrew() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       queryClient.invalidateQueries({ queryKey: ["/api/admin/crew"] });
-      toast({ title: data.tempApproved ? `✓ ${name} can now edit their profile` : `${name} temp access removed` });
+      if (data.tempApproved) {
+        // Enabling — show WA dialog
+        setPendingWa({ url: buildWaTempApproveUrl(phone, name), action: "temp-approve", name });
+      } else {
+        toast({ title: `${name} temp access removed` });
+      }
     } catch {
       toast({ variant: "destructive", title: "Failed to update" });
     }
@@ -551,14 +562,14 @@ export default function AdminCrew() {
                                   (crew as any).tempApproved ? (
                                     <DropdownMenuItem
                                       className="flex items-center gap-2 text-xs rounded-lg px-3 py-2 cursor-pointer text-violet-700 bg-violet-50 hover:bg-violet-100 focus:bg-violet-100 font-medium"
-                                      onClick={() => handleTempApprove(crew.id, crew.name, true)}
+                                      onClick={() => handleTempApprove(crew.id, crew.name, crew.phone, true)}
                                     >
                                       <Clock className="w-3.5 h-3.5" /> Profile Access ✓
                                     </DropdownMenuItem>
                                   ) : (
                                     <DropdownMenuItem
                                       className="flex items-center gap-2 text-xs rounded-lg px-3 py-2 cursor-pointer text-violet-600 hover:bg-violet-50 focus:bg-violet-50"
-                                      onClick={() => handleTempApprove(crew.id, crew.name, false)}
+                                      onClick={() => handleTempApprove(crew.id, crew.name, crew.phone, false)}
                                     >
                                       <Clock className="w-3.5 h-3.5" /> Temp Approve
                                     </DropdownMenuItem>
