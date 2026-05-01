@@ -274,23 +274,47 @@ function ProfileStrengthBar({
 
 
 // ── Server-side photo upload ────────────────────────────────────────────────────
-// Sends the raw File to the API server which compresses it with sharp (Node.js).
-// Zero canvas / zero client-side memory pressure — safe on all iOS versions.
+// Uses XHR (not fetch) for iOS reliability — fetch + multipart FormData fails
+// silently on iOS WKWebView when the window loses/regains focus during upload.
+// Reads the file into an ArrayBuffer immediately to prevent iOS file handle
+// invalidation that can happen if a re-render occurs between selection and upload.
 async function uploadPhotoToServer(file: File, baseUrl: string): Promise<string> {
-  const form = new FormData();
-  form.append("photo", file);
-  const res = await fetch(`${baseUrl}/api/crew/portfolio/upload-photo`, {
-    method: "POST",
-    credentials: "include",
-    body: form,
+  // Read into memory first — prevents "Load failed" on iOS when the file
+  // handle becomes invalid after a background auth refetch on window focus.
+  const buffer = await file.arrayBuffer();
+  const blob = new Blob([buffer], { type: file.type || "image/jpeg" });
+
+  return new Promise<string>((resolve, reject) => {
+    const form = new FormData();
+    form.append("photo", blob, file.name || "photo.jpg");
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${baseUrl}/api/crew/portfolio/upload-photo`);
+    xhr.withCredentials = true;
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          if (!data.dataUrl) { reject(new Error("Server returned no image data")); return; }
+          resolve(data.dataUrl);
+        } catch {
+          reject(new Error("Invalid server response"));
+        }
+      } else {
+        try {
+          const err = JSON.parse(xhr.responseText);
+          reject(new Error(err.error || `Upload failed (${xhr.status})`));
+        } catch {
+          reject(new Error(`Upload failed (${xhr.status})`));
+        }
+      }
+    };
+    xhr.onerror = () => reject(new Error("Network error — please check your connection"));
+    xhr.ontimeout = () => reject(new Error("Upload timed out — try a smaller photo"));
+    xhr.timeout = 60_000;
+    xhr.send(form);
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `Upload failed (${res.status})`);
-  }
-  const { dataUrl } = await res.json();
-  if (!dataUrl) throw new Error("Server returned no image data");
-  return dataUrl;
 }
 
 // ── Form state types ─────────────────────────────────────────────────────────────
@@ -855,8 +879,12 @@ export default function Profile() {
     setUploadVideoProgress(0);
 
     try {
+      // Read into ArrayBuffer first — prevents iOS file handle invalidation
+      const buffer = await pendingVideoFile.arrayBuffer();
+      const blob = new Blob([buffer], { type: pendingVideoFile.type || "video/mp4" });
+
       const fd = new FormData();
-      fd.append("video", pendingVideoFile);
+      fd.append("video", blob, pendingVideoFile.name || "intro.mp4");
 
       const videoUrl = await new Promise<string>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
@@ -874,7 +902,9 @@ export default function Profile() {
             catch { reject(new Error("Upload failed")); }
           }
         };
-        xhr.onerror = () => reject(new Error("Network error"));
+        xhr.onerror = () => reject(new Error("Network error — please check your connection"));
+        xhr.ontimeout = () => reject(new Error("Upload timed out — try a smaller video"));
+        xhr.timeout = 120_000;
         xhr.send(fd);
       });
 
