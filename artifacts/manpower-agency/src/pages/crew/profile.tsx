@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "wouter";
+import { useAuth } from "@/lib/auth-context";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -370,6 +371,8 @@ function generateVideoThumbnail(src: string): Promise<{ thumbnail: string; durat
 // ── Profile page ─────────────────────────────────────────────────────────────────
 export default function Profile() {
   const { data: profile, isLoading } = useGetCrewProfile();
+  const { user } = useAuth();
+  const isTempApproved = !!user?.tempApproved;
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [, navigate] = useLocation();
@@ -950,8 +953,12 @@ export default function Profile() {
     );
   }
 
-  // Profile strength
-  const { strength, checklist } = calcProfileStrength(profile);
+  // Profile strength — hide PAN/bank checklist items for temp-approved users
+  const HIDDEN_FOR_TEMP = ["Upload PAN Card", "Add Bank Details"];
+  const { strength, checklist: rawChecklist } = calcProfileStrength(profile);
+  const checklist = isTempApproved
+    ? rawChecklist.filter(item => !HIDDEN_FOR_TEMP.includes(item.label))
+    : rawChecklist;
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
@@ -996,6 +1003,19 @@ export default function Profile() {
         checklist={checklist}
         approved={false}
       />
+
+      {/* ── Temp-approved motivational banner ───────────────────────────────── */}
+      {isTempApproved && (
+        <div className="flex items-start gap-3 px-4 py-3.5 rounded-2xl bg-violet-50 border border-violet-200">
+          <span className="text-xl leading-none mt-0.5">⚡</span>
+          <div>
+            <p className="text-sm font-semibold text-violet-800">Complete your profile to get shortlisted</p>
+            <p className="text-xs text-violet-600 mt-0.5 leading-relaxed">
+              Profiles with photos and intro videos get shortlisted faster. Add at least 5 clear photos and a short intro video to boost your chances.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ─────────────────────────────────────────────────────────────────────── */}
       {/* Section 1: Portfolio Photos                                             */}
@@ -1542,6 +1562,7 @@ export default function Profile() {
         </div>
       </div>
 
+      {!isTempApproved && (<>
       {/* ─────────────────────────────────────────────────────────────────────── */}
       {/* Section 2: Payment Details                                              */}
       {/* ─────────────────────────────────────────────────────────────────────── */}
@@ -1896,8 +1917,10 @@ export default function Profile() {
           )}
         </div>
       </div>
+      </>)}
 
       {/* ── Payment Edit Modal ───────────────────────────────────────────────────── */}
+      {!isTempApproved && (
       <Dialog open={payEditModal} onOpenChange={open => { if (!open) setPayEditModal(false); }}>
         <DialogContent className="sm:max-w-md w-full p-0 gap-0 rounded-2xl overflow-hidden flex flex-col max-h-[90dvh]">
           <DialogHeader className="px-5 pt-5 pb-4 border-b border-border/40 flex-shrink-0">
@@ -2031,6 +2054,7 @@ export default function Profile() {
           </div>
         </DialogContent>
       </Dialog>
+      )}
 
       {/* ── Intro Video Modal ─────────────────────────────────────────────────── */}
       {videoModalOpen && createPortal(
