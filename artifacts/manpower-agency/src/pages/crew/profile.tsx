@@ -1047,15 +1047,22 @@ export default function Profile() {
           </div>
 
           {/* Instructions */}
-          <div className="mb-2 p-2.5 rounded-xl bg-primary/10 border border-primary/20">
-            <span className="inline-block text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full mb-1.5">
+          <div className="mb-2 p-3 rounded-xl bg-primary/10 border border-primary/20">
+            <span className="inline-block text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full mb-2">
               Instructions
             </span>
-            <div className="space-y-0.5">
-              <p className="text-xs font-semibold text-foreground">📸 Clear full-length photos</p>
-              <p className="text-xs font-semibold text-foreground">👔 Event-ready or model-ready outfits (if experienced)</p>
-              <p className="text-xs font-semibold text-foreground">🌟 Freshers: Upload natural unfiltered full-length photos (formal clothes preferred)</p>
-              <p className="text-xs font-semibold text-foreground">🚫 No selfies or blurry images</p>
+            <div className="space-y-1.5">
+              {[
+                { icon: "📸", text: "Clear full-length photos" },
+                { icon: "👔", text: "Event-ready or model-ready outfits (if experienced)" },
+                { icon: "🌟", text: "Freshers: Natural unfiltered full-length photos (formal clothes preferred)" },
+                { icon: "🚫", text: "No selfies or blurry images" },
+              ].map(({ icon, text }) => (
+                <div key={text} className="flex items-start gap-2">
+                  <span className="text-sm leading-5 shrink-0">{icon}</span>
+                  <p className="text-xs font-semibold text-foreground leading-5">{text}</p>
+                </div>
+              ))}
             </div>
           </div>
 
