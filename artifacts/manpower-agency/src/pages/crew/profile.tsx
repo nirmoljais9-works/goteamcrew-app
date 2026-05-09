@@ -1047,11 +1047,11 @@ export default function Profile() {
           </div>
 
           {/* Instructions */}
-          <div className="mb-2 px-3 py-2 rounded-xl bg-primary/10 border border-primary/20">
-            <span className="inline-block text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full mb-1.5">
+          <div className="mb-1.5 px-2.5 py-1.5 rounded-xl bg-primary/10 border border-primary/20">
+            <span className="inline-block text-[9px] font-semibold text-primary bg-primary/10 px-1.5 py-px rounded-full mb-1">
               Instructions
             </span>
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {[
                 { icon: "📸", text: "Clear full-length photos" },
                 { icon: "👔", text: "Event-ready or model-ready outfits (if experienced)" },
@@ -1059,8 +1059,8 @@ export default function Profile() {
                 { icon: "🚫", text: "No selfies or blurry images" },
               ].map(({ icon, text }) => (
                 <div key={text} className="flex items-start gap-1.5">
-                  <span className="text-xs leading-[1.4rem] shrink-0">{icon}</span>
-                  <p className="text-[11px] font-semibold text-foreground leading-[1.4rem]">{text}</p>
+                  <span className="text-[11px] leading-[1.3rem] shrink-0">{icon}</span>
+                  <p className="text-[10px] font-semibold text-foreground leading-[1.3rem]">{text}</p>
                 </div>
               ))}
             </div>
@@ -1170,24 +1170,25 @@ export default function Profile() {
               </div>
             ))}
 
-            {/* Upload tile */}
+            {/* Upload tile — 2-col span when empty so it's the clear primary action */}
             {portfolioPhotos.length < 10 && (
               <label
                 htmlFor="portfolio-file-input"
-                className={`aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1.5 transition-all ${
-                  uploadingPortfolio
+                className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all
+                  ${portfolioPhotos.length === 0 ? "col-span-2" : "col-span-1"}
+                  ${uploadingPortfolio
                     ? "border-primary/20 bg-primary/5 cursor-wait pointer-events-none"
-                    : "border-primary/40 bg-primary/5 cursor-pointer hover:bg-primary/10 hover:border-primary/60 active:scale-95"
-                }`}
+                    : "border-primary/50 bg-primary/5 cursor-pointer hover:bg-primary/10 hover:border-primary/70 active:scale-[0.97]"
+                  }`}
               >
-                <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
+                <div className={`rounded-full bg-primary/15 flex items-center justify-center ${portfolioPhotos.length === 0 ? "w-12 h-12" : "w-8 h-8"}`}>
                   {uploadingPortfolio
-                    ? <Loader2 className="w-4 h-4 text-primary animate-spin" />
-                    : <Plus className="w-4 h-4 text-primary" />
+                    ? <Loader2 className={`text-primary animate-spin ${portfolioPhotos.length === 0 ? "w-6 h-6" : "w-4 h-4"}`} />
+                    : <Plus className={`text-primary ${portfolioPhotos.length === 0 ? "w-6 h-6" : "w-4 h-4"}`} />
                   }
                 </div>
-                <p className="text-[10px] font-bold text-primary text-center leading-tight">
-                  {uploadingPortfolio ? "Uploading…" : "Add"}
+                <p className={`font-bold text-primary text-center leading-tight ${portfolioPhotos.length === 0 ? "text-xs" : "text-[10px]"}`}>
+                  {uploadingPortfolio ? "Uploading…" : "Add Photo"}
                 </p>
               </label>
             )}
