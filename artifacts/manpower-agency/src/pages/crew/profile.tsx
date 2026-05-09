@@ -1063,36 +1063,6 @@ export default function Profile() {
             Good photos increase your chances of getting shortlisted in events.
           </p>
 
-          {/* Example photos — de-emphasised, smaller, guidance only */}
-          <div className="mb-2 opacity-90">
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Example photos</p>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-lg overflow-hidden border border-border/25 bg-muted/20">
-                <div className="aspect-square overflow-hidden flex items-center justify-center bg-muted/20">
-                  <img
-                    src={`${import.meta.env.BASE_URL}images/example-full-length.jpg`}
-                    alt="Example full-length event photo"
-                    className="w-full h-full object-contain pointer-events-none select-none"
-                    style={{ filter: "blur(2px)", opacity: 0.93 }}
-                    draggable={false}
-                  />
-                </div>
-                <p className="text-[9px] text-center text-muted-foreground py-0.5 font-medium">Full Photo</p>
-              </div>
-              <div className="rounded-lg overflow-hidden border border-border/25 bg-muted/20">
-                <div className="aspect-square overflow-hidden flex items-center justify-center bg-muted/20">
-                  <img
-                    src={`${import.meta.env.BASE_URL}images/example-group.jpg`}
-                    alt="Example formal event photo"
-                    className="w-full h-full object-contain pointer-events-none select-none"
-                    style={{ filter: "blur(2px)", opacity: 0.93 }}
-                    draggable={false}
-                  />
-                </div>
-                <p className="text-[9px] text-center text-muted-foreground py-0.5 font-medium">Event / Formal Look</p>
-              </div>
-            </div>
-          </div>
 
           {/* Photo grid — compact 4-column thumbnails */}
           <div className="grid grid-cols-4 gap-1.5">
