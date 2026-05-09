@@ -1047,20 +1047,20 @@ export default function Profile() {
           </div>
 
           {/* Instructions */}
-          <div className="mb-2 p-3 rounded-xl bg-primary/10 border border-primary/20">
-            <span className="inline-block text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full mb-2">
+          <div className="mb-2 px-3 py-2 rounded-xl bg-primary/10 border border-primary/20">
+            <span className="inline-block text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full mb-1.5">
               Instructions
             </span>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {[
                 { icon: "📸", text: "Clear full-length photos" },
                 { icon: "👔", text: "Event-ready or model-ready outfits (if experienced)" },
                 { icon: "🌟", text: "Freshers: Natural unfiltered full-length photos (formal clothes preferred)" },
                 { icon: "🚫", text: "No selfies or blurry images" },
               ].map(({ icon, text }) => (
-                <div key={text} className="flex items-start gap-2">
-                  <span className="text-sm leading-5 shrink-0">{icon}</span>
-                  <p className="text-xs font-semibold text-foreground leading-5">{text}</p>
+                <div key={text} className="flex items-start gap-1.5">
+                  <span className="text-xs leading-[1.4rem] shrink-0">{icon}</span>
+                  <p className="text-[11px] font-semibold text-foreground leading-[1.4rem]">{text}</p>
                 </div>
               ))}
             </div>
@@ -1174,19 +1174,19 @@ export default function Profile() {
             {portfolioPhotos.length < 10 && (
               <label
                 htmlFor="portfolio-file-input"
-                className={`aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-all ${
+                className={`aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1.5 transition-all ${
                   uploadingPortfolio
                     ? "border-primary/20 bg-primary/5 cursor-wait pointer-events-none"
-                    : "border-primary/30 bg-primary/5 cursor-pointer hover:bg-primary/10 hover:border-primary/50"
+                    : "border-primary/40 bg-primary/5 cursor-pointer hover:bg-primary/10 hover:border-primary/60 active:scale-95"
                 }`}
               >
-                <div className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
                   {uploadingPortfolio
-                    ? <Loader2 className="w-3 h-3 text-primary animate-spin" />
-                    : <Plus className="w-3 h-3 text-primary" />
+                    ? <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                    : <Plus className="w-4 h-4 text-primary" />
                   }
                 </div>
-                <p className="text-[9px] font-semibold text-primary text-center leading-tight px-0.5">
+                <p className="text-[10px] font-bold text-primary text-center leading-tight">
                   {uploadingPortfolio ? "Uploading…" : "Add"}
                 </p>
               </label>
