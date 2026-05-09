@@ -1053,7 +1053,8 @@ export default function Profile() {
             </span>
             <div className="space-y-0.5">
               <p className="text-xs font-semibold text-foreground">📸 Clear full-length photos</p>
-              <p className="text-xs font-semibold text-foreground">👔 Event-ready or model-ready outfits</p>
+              <p className="text-xs font-semibold text-foreground">👔 Event-ready or model-ready outfits (if experienced)</p>
+              <p className="text-xs font-semibold text-foreground">🌟 Freshers: Upload natural unfiltered full-length photos (formal clothes preferred)</p>
               <p className="text-xs font-semibold text-foreground">🚫 No selfies or blurry images</p>
             </div>
           </div>
