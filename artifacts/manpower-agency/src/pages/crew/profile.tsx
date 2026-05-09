@@ -427,6 +427,7 @@ export default function Profile() {
   const videoInputRef   = useRef<HTMLInputElement>(null);
   const videoModalRef   = useRef<HTMLVideoElement>(null);
   const [savingPortfolio, setSavingPortfolio]       = useState(false);
+  const [savingProfile,   setSavingProfile]         = useState(false);
   const [uploadingPortfolio, setUploadingPortfolio] = useState(false);
   const [replacingPhoto,     setReplacingPhoto]     = useState(false);
   const [lightbox, setLightbox]                     = useState<string | null>(null);
@@ -805,7 +806,7 @@ export default function Profile() {
       setPortfolioPhotos(prev => prev.map((p, i) => i === idx ? dataUrl : p));
       setPhotoQuality(prev => prev.map((q, i) => i === idx ? null : q));
       setPortfolioChanged(true);
-      toast({ title: "Photo replaced", description: "Click Save Photos to apply changes." });
+      toast({ title: "Photo replaced", description: "Tap Save Profile to apply changes." });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Upload failed", description: e.message || "Could not replace photo." });
     } finally {
@@ -925,6 +926,67 @@ export default function Profile() {
     }
   };
 
+  // ── Combined "Save Profile" — handles photos + video in one action ────────────
+  const handleSaveProfile = async () => {
+    setSavingProfile(true);
+    try {
+      // 1. Save portfolio photo list (fast — just URL array update)
+      if (portfolioChanged) {
+        const fd = new FormData();
+        fd.append("portfolioPhotos", JSON.stringify(portfolioPhotos));
+        fd.append("photoQuality", JSON.stringify(photoQuality));
+        const res = await fetch(`${BASE_URL}/api/crew/profile`, { method: "PUT", credentials: "include", body: fd });
+        if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || "Failed to save photos"); }
+        await queryClient.invalidateQueries({ queryKey: ["/api/crew/profile"] });
+        setPortfolioChanged(false);
+      }
+
+      // 2. Upload intro video (slow — can take 30–120 s)
+      if (pendingVideoFile) {
+        setUploadingVideo(true);
+        setUploadVideoProgress(0);
+        const buffer = await pendingVideoFile.arrayBuffer();
+        const blob = new Blob([buffer], { type: pendingVideoFile.type || "video/mp4" });
+        const fd = new FormData();
+        fd.append("video", blob, pendingVideoFile.name || "intro.mp4");
+        const videoUrl = await new Promise<string>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", `${BASE_URL}/api/crew/portfolio/upload-video`);
+          xhr.withCredentials = true;
+          xhr.upload.onprogress = (ev) => {
+            if (ev.lengthComputable) setUploadVideoProgress(Math.round((ev.loaded / ev.total) * 100));
+          };
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(JSON.parse(xhr.responseText).videoUrl);
+            } else {
+              try { reject(new Error(JSON.parse(xhr.responseText).error || "Upload failed")); }
+              catch { reject(new Error("Upload failed")); }
+            }
+          };
+          xhr.onerror   = () => reject(new Error("Network error — please check your connection"));
+          xhr.ontimeout = () => reject(new Error("Upload timed out — try a smaller video"));
+          xhr.timeout = 120_000;
+          xhr.send(fd);
+        });
+        if (pendingVideoObjUrl) URL.revokeObjectURL(pendingVideoObjUrl);
+        setPendingVideoFile(null);
+        setPendingVideoObjUrl(null);
+        setIntroVideoUrl(videoUrl);
+        await queryClient.invalidateQueries({ queryKey: ["/api/crew/profile"] });
+        setUploadingVideo(false);
+        setUploadVideoProgress(0);
+      }
+
+      toast({ title: "Profile updated successfully" });
+    } catch (e: any) {
+      setUploadingVideo(false);
+      toast({ variant: "destructive", title: "Save failed", description: e?.message ?? "Please try again." });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
   const handleVideoDelete = async () => {
     setDeletingVideo(true);
     try {
@@ -961,8 +1023,10 @@ export default function Profile() {
     : rawChecklist;
 
   // ── Render ────────────────────────────────────────────────────────────────────
+  const hasUnsavedChanges = portfolioChanged || !!pendingVideoFile;
+
   return (
-    <div className={`max-w-3xl space-y-4 transition-[padding] duration-300 ${portfolioChanged ? "pb-28" : ""}`}>
+    <div className={`max-w-3xl space-y-4 transition-[padding] duration-300 ${hasUnsavedChanges ? "pb-28" : ""}`}>
       <div>
         <h1 className="text-3xl font-display font-bold text-foreground">My Profile</h1>
         <p className="text-muted-foreground mt-1">Your details and payment info</p>
@@ -1330,15 +1394,14 @@ export default function Profile() {
                   )}
                   {/* Actions */}
                   {pendingVideoObjUrl ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between gap-2">
                       <button type="button" onClick={handleVideoCancelPending}
-                        className="flex-1 text-xs font-medium text-muted-foreground border border-border/50 rounded-lg py-2 hover:bg-muted/30 transition-colors">
+                        className="text-xs font-medium text-muted-foreground border border-border/50 rounded-lg py-1.5 px-3 hover:bg-muted/30 transition-colors">
                         Cancel
                       </button>
-                      <button type="button" onClick={handleVideoSave}
-                        className="flex-1 text-xs font-semibold text-white bg-primary rounded-lg py-2 hover:bg-primary/90 transition-colors">
-                        Save Video
-                      </button>
+                      <span className="text-xs text-amber-600 font-medium flex items-center gap-1">
+                        <Info className="w-3 h-3 shrink-0" /> Tap Save Profile to upload
+                      </span>
                     </div>
                   ) : profile?.introVideoQuality !== "good" ? (
                     <div className="flex items-center">
@@ -2281,22 +2344,34 @@ export default function Profile() {
         </div>
       )}
 
-      {/* ── Sticky Portfolio Save Bar ─────────────────────────────────────────── */}
+      {/* ── Sticky Save Profile Bar ───────────────────────────────────────────── */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-30 transition-all duration-300 ${portfolioChanged ? "translate-y-0 opacity-100 pointer-events-auto" : "translate-y-full opacity-0 pointer-events-none"}`}
+        className={`fixed bottom-0 left-0 right-0 z-30 transition-all duration-300 ${hasUnsavedChanges ? "translate-y-0 opacity-100 pointer-events-auto" : "translate-y-full opacity-0 pointer-events-none"}`}
       >
         <div className="bg-white/95 backdrop-blur border-t border-border/60 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
-          <p className="text-xs text-amber-600 font-medium flex items-center gap-1.5 mb-2">
-            <Info className="w-3.5 h-3.5 shrink-0" /> You have unsaved changes
-          </p>
+          {uploadingVideo ? (
+            <div className="flex items-center gap-2 mb-2">
+              <Loader2 className="w-3.5 h-3.5 text-primary animate-spin shrink-0" />
+              <div className="flex-1">
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${uploadVideoProgress}%` }} />
+                </div>
+              </div>
+              <span className="text-xs text-primary font-semibold shrink-0 w-8 text-right">{uploadVideoProgress}%</span>
+            </div>
+          ) : (
+            <p className="text-xs text-amber-600 font-medium flex items-center gap-1.5 mb-2">
+              <Info className="w-3.5 h-3.5 shrink-0" /> You have unsaved changes
+            </p>
+          )}
           <Button
             className="w-full h-11 text-sm font-semibold rounded-xl gap-2"
-            onClick={handlePortfolioSave}
-            disabled={savingPortfolio}
+            onClick={handleSaveProfile}
+            disabled={savingProfile || uploadingVideo}
           >
-            {savingPortfolio
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</>
-              : <><Save className="w-4 h-4" /> Save Photos</>
+            {savingProfile || uploadingVideo
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> {uploadingVideo ? `Uploading video… ${uploadVideoProgress}%` : "Saving…"}</>
+              : <><Save className="w-4 h-4" /> Save Profile</>
             }
           </Button>
         </div>
