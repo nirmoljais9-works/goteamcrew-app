@@ -1380,7 +1380,6 @@ export default function Profile() {
               </div>
               <div className="text-center">
                 <p className="text-sm font-semibold text-foreground">Upload Introduction Video</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Tell clients about yourself and your experience</p>
               </div>
               <span className="text-xs font-semibold text-primary border border-primary/30 rounded-lg px-3 py-1 mt-1 group-hover:bg-primary/5 transition-colors">
                 Upload Video
