@@ -635,6 +635,39 @@ router.get("/auth/crew-profile/:crewId", async (req, res) => {
   }
 });
 
+// ── Pre-OTP account check for forgot-password (POST = never cached) ─────────
+router.post("/auth/check-account", async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ error: "Phone number is required" });
+
+    const digits = String(phone).replace(/\D/g, "");
+    let phoneBare = digits;
+    if (phoneBare.startsWith("91") && phoneBare.length === 12) phoneBare = phoneBare.slice(2);
+    phoneBare = phoneBare.slice(-10);
+    if (phoneBare.length !== 10) return res.status(400).json({ error: "Enter a valid 10-digit phone number" });
+
+    const [row] = await db
+      .select({ userId: crewProfilesTable.userId, status: usersTable.status })
+      .from(crewProfilesTable)
+      .innerJoin(usersTable, eq(usersTable.id, crewProfilesTable.userId))
+      .where(or(
+        eq(crewProfilesTable.phone, phoneBare),
+        eq(crewProfilesTable.phone, `+91${phoneBare}`),
+      ));
+
+    if (!row) return res.status(404).json({ error: "No account found with this mobile number. Please check your number." });
+    if (row.status === "removed" || row.status === "blacklisted") {
+      return res.status(403).json({ error: "This account is not eligible for password reset. Please contact support." });
+    }
+
+    return res.json({ exists: true, status: row.status });
+  } catch (err) {
+    console.error("[check-account]", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // ── Reset password (called after OTP verified on frontend) ───────────────────
 router.post("/auth/reset-password", async (req, res) => {
   try {
@@ -649,13 +682,17 @@ router.post("/auth/reset-password", async (req, res) => {
     if (phoneBare.length !== 10) return res.status(400).json({ error: "Invalid phone number" });
 
     const [profile] = await db
-      .select({ userId: crewProfilesTable.userId })
+      .select({ userId: crewProfilesTable.userId, status: usersTable.status })
       .from(crewProfilesTable)
+      .innerJoin(usersTable, eq(usersTable.id, crewProfilesTable.userId))
       .where(or(
         eq(crewProfilesTable.phone, phoneBare),
         eq(crewProfilesTable.phone, `+91${phoneBare}`),
       ));
-    if (!profile) return res.status(404).json({ error: "No account found with this phone number" });
+    if (!profile) return res.status(404).json({ error: "No account found with this mobile number." });
+    if (profile.status === "removed" || profile.status === "blacklisted") {
+      return res.status(403).json({ error: "This account is not eligible for password reset." });
+    }
 
     const passwordHash = await bcrypt.hash(String(newPassword), 10);
     await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, profile.userId));

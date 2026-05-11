@@ -121,13 +121,17 @@ function ForgotPasswordModal({ open, onClose, initialPhone }: {
     setFormError("");
     setSending(true);
 
-    // ── Verify account exists before sending OTP ──────────────────────────────
+    // ── Verify account exists before sending OTP (POST = never cached) ────────
     try {
-      const checkRes = await fetch(`${BASE_URL}/api/auth/check-exists?phone=${digits}`);
+      const checkRes = await fetch(`${BASE_URL}/api/auth/check-account`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: digits }),
+      });
       const checkData = await checkRes.json().catch(() => ({}));
-      if (!checkRes.ok || !checkData.exists) {
+      if (!checkRes.ok) {
         setSending(false);
-        setFormError("No account found with this mobile number. Please check your number.");
+        setFormError(checkData.error || "No account found with this mobile number. Please check your number.");
         return;
       }
     } catch {
