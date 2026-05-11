@@ -152,44 +152,47 @@ interface StrengthResult {
   checklist: { label: string; done: boolean }[];
 }
 
-function calcProfileStrength(profile: any): StrengthResult {
+function calcProfileStrength(profile: any, tempApproved = false): StrengthResult {
   if (!profile) return { strength: 0, checklist: [] };
 
   const photos: string[] = (() => {
     try { return JSON.parse(profile.portfolioPhotos || "[]"); } catch { return []; }
   })();
 
-  let score = 0;
-
-  // Profile Details — 20% (name, phone, email, city, gender, category, languages, experience, age)
+  // Profile Details — worth 20 raw points
   const profileFields = [
     !!profile.name, !!profile.phone, !!profile.email, !!profile.city,
     !!profile.gender, !!profile.category, !!profile.languages, !!profile.experience, !!profile.age,
   ];
-  score += (profileFields.filter(Boolean).length / profileFields.length) * 20;
+  const detailsScore = (profileFields.filter(Boolean).length / profileFields.length) * 20;
 
-  // Portfolio Photos — 35% (highest priority)
-  if (photos.length >= 8) score += 35;
-  else if (photos.length >= 4) score += 22;
-  else if (photos.length >= 1) score += 10;
+  // Portfolio Photos — worth 35 raw points
+  const photosScore = photos.length >= 8 ? 35 : photos.length >= 4 ? 22 : photos.length >= 1 ? 10 : 0;
 
-  // Intro Video — 25% (second highest priority)
-  if (profile.introVideoUrl) score += 25;
+  // Intro Video — worth 25 raw points
+  const videoScore = profile.introVideoUrl ? 25 : 0;
 
-  // PAN Card — 10%
-  if (profile.panNumber) score += 10;
+  // PAN Card — worth 10 raw points (excluded for temp-approved)
+  const panScore = !tempApproved && profile.panNumber ? 10 : 0;
 
-  // Bank Details — 10%
-  if (profile.payHolderName && profile.payAccountNumber) score += 10;
+  // Bank Details — worth 10 raw points (excluded for temp-approved)
+  const bankScore = !tempApproved && (profile.payHolderName && profile.payAccountNumber) ? 10 : 0;
+
+  const rawScore   = detailsScore + photosScore + videoScore + panScore + bankScore;
+  // For temp-approved the max possible is 80 (no PAN/bank), so rescale to 100
+  const maxPossible = tempApproved ? 80 : 100;
+  const strength   = Math.min(100, Math.round((rawScore / maxPossible) * 100));
 
   const checklist = [
-    { label: "Add Portfolio Photos",  done: photos.length > 0,                                    priority: true },
-    { label: "Add Intro Video",       done: !!profile.introVideoUrl,                              priority: true },
-    { label: "Upload PAN Card",       done: !!profile.panNumber,                                  priority: false },
-    { label: "Add Bank Details",      done: !!(profile.payHolderName && profile.payAccountNumber), priority: false },
+    { label: "Add Portfolio Photos", done: photos.length > 0,                                     priority: true },
+    { label: "Add Intro Video",      done: !!profile.introVideoUrl,                               priority: true },
+    ...(!tempApproved ? [
+      { label: "Upload PAN Card",    done: !!profile.panNumber,                                   priority: false },
+      { label: "Add Bank Details",   done: !!(profile.payHolderName && profile.payAccountNumber), priority: false },
+    ] : []),
   ];
 
-  return { strength: Math.round(score), checklist };
+  return { strength, checklist };
 }
 
 // ── Profile Strength Bar ─────────────────────────────────────────────────────────
@@ -1015,12 +1018,8 @@ export default function Profile() {
     );
   }
 
-  // Profile strength — hide PAN/bank checklist items for temp-approved users
-  const HIDDEN_FOR_TEMP = ["Upload PAN Card", "Add Bank Details"];
-  const { strength, checklist: rawChecklist } = calcProfileStrength(profile);
-  const checklist = isTempApproved
-    ? rawChecklist.filter(item => !HIDDEN_FOR_TEMP.includes(item.label))
-    : rawChecklist;
+  // Profile strength — temp-approved users get a rescaled score (PAN/bank excluded)
+  const { strength, checklist } = calcProfileStrength(profile, isTempApproved);
 
   // ── Render ────────────────────────────────────────────────────────────────────
   const hasUnsavedChanges = portfolioChanged || !!pendingVideoFile;
