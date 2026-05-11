@@ -393,6 +393,8 @@ export default function Login() {
   const [accountRemoved, setAccountRemoved] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [fpOpen, setFpOpen] = useState(false);
+  const [fpChecking, setFpChecking] = useState(false);
+  const [fpError, setFpError] = useState("");
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -444,6 +446,36 @@ export default function Login() {
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     setAccountRemoved(false);
     loginMutation.mutate(values);
+  };
+
+  const handleForgotPassword = async () => {
+    setFpError("");
+    const raw = form.getValues("phone");
+    const digits = raw.replace(/\D/g, "").slice(0, 10);
+
+    if (digits.length !== 10) {
+      setFpError("Enter your 10-digit mobile number above first, then click Forgot password.");
+      return;
+    }
+
+    setFpChecking(true);
+    try {
+      const res = await fetch(`${BASE_URL}/api/auth/check-account`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: digits }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setFpError(data.error || "No account found with this mobile number.");
+        return;
+      }
+      setFpOpen(true);
+    } catch {
+      setFpError("Could not verify your account. Please check your connection.");
+    } finally {
+      setFpChecking(false);
+    }
   };
 
   return (
@@ -565,12 +597,20 @@ export default function Login() {
                       <FormLabel className="text-foreground font-semibold">Password</FormLabel>
                       <button
                         type="button"
-                        onClick={() => setFpOpen(true)}
-                        className="text-sm font-medium text-primary hover:underline"
+                        onClick={handleForgotPassword}
+                        disabled={fpChecking}
+                        className="text-sm font-medium text-primary hover:underline disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1"
                       >
+                        {fpChecking && <Loader2 className="w-3 h-3 animate-spin" />}
                         Forgot password?
                       </button>
                     </div>
+                    {fpError && (
+                      <p className="text-xs text-red-500 font-medium flex items-start gap-1.5 pt-1">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        {fpError}
+                      </p>
+                    )}
                     <FormControl>
                       <div className="relative">
                         <Input
