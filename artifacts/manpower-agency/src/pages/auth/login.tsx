@@ -507,12 +507,12 @@ export default function Login() {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-foreground font-semibold">Phone number or email</FormLabel>
+                    <FormLabel className="text-foreground font-semibold">Phone number</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                         <Input
-                          placeholder="Mobile number or email"
+                          placeholder="10-digit mobile number"
                           type="text"
                           inputMode="email"
                           autoComplete="username"
