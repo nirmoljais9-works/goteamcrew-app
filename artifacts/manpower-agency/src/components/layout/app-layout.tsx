@@ -83,10 +83,10 @@ export function AppLayout({ children, tempApprovedMode = false }: AppLayoutProps
             <LogOut className="w-3.5 h-3.5" /> Sign out
           </Button>
         </div>
-        {/* Profile-access notice banner */}
-        <div className="bg-amber-50 border-b border-amber-200 px-5 py-2.5 flex items-center gap-2.5 text-xs text-amber-800">
-          <ShieldAlert className="w-3.5 h-3.5 shrink-0 text-amber-600" />
-          <span>Your profile is being reviewed. You can complete your profile while you wait.</span>
+        {/* WhatsApp notice banner */}
+        <div className="bg-emerald-50 border-b border-emerald-100 px-5 py-2 flex items-center gap-2 text-xs text-emerald-700">
+          <span className="text-sm leading-none shrink-0">💬</span>
+          <span className="font-medium">You'll receive event updates on WhatsApp once your profile is completed.</span>
         </div>
         <div className="flex-1 p-4 md:p-8 lg:p-10 max-w-4xl mx-auto w-full">
           {children}
