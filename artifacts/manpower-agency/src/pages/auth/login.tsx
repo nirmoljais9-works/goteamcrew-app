@@ -16,7 +16,7 @@ import { AlertTriangle, Mail, Eye, EyeOff, Phone } from "lucide-react";
 const SUPPORT_EMAIL = "info@goteamcrew.in";
 
 const formSchema = z.object({
-  phone: z.string().min(6, "Please enter your phone number"),
+  phone: z.string().regex(/^\d{10}$/, "Enter a valid 10-digit phone number"),
   password: z.string().min(1, "Password is required"),
 });
 
@@ -180,13 +180,18 @@ export default function Login() {
                       <div className="relative">
                         <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                         <Input
-                          placeholder="Enter your phone number"
+                          placeholder="10-digit mobile number"
                           type="tel"
-                          inputMode="tel"
+                          inputMode="numeric"
                           autoComplete="tel"
                           autoCorrect="off"
+                          maxLength={10}
                           className="h-12 rounded-xl bg-muted/50 border-transparent focus:bg-background focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all pl-9"
                           {...field}
+                          onChange={(e) => {
+                            const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                            field.onChange(digits);
+                          }}
                         />
                       </div>
                     </FormControl>
