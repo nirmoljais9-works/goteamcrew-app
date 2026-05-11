@@ -16,8 +16,14 @@ import { AlertTriangle, ArrowLeft, Eye, EyeOff, Loader2, Mail, Phone, X } from "
 const SUPPORT_EMAIL = "info@goteamcrew.in";
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
+const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+const isPhone = (v: string) => /^\d{10}$/.test(v);
+
 const formSchema = z.object({
-  phone: z.string().regex(/^\d{10}$/, "Enter a valid 10-digit phone number"),
+  phone: z.string().min(1, "Enter your phone number or email").refine(
+    (v) => isPhone(v) || isEmail(v),
+    "Enter a valid 10-digit number or email address"
+  ),
   password: z.string().min(1, "Password is required"),
 });
 
@@ -501,22 +507,27 @@ export default function Login() {
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-foreground font-semibold">Phone number</FormLabel>
+                    <FormLabel className="text-foreground font-semibold">Phone number or email</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                         <Input
-                          placeholder="10-digit mobile number"
-                          type="tel"
-                          inputMode="numeric"
-                          autoComplete="tel"
+                          placeholder="Mobile number or email"
+                          type="text"
+                          inputMode="email"
+                          autoComplete="username"
                           autoCorrect="off"
-                          maxLength={10}
+                          autoCapitalize="none"
                           className="h-12 rounded-xl bg-muted/50 border-transparent focus:bg-background focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all pl-9"
                           {...field}
                           onChange={(e) => {
-                            const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
-                            field.onChange(digits);
+                            const raw = e.target.value;
+                            // If it looks like an email (has @ or letters), pass through; otherwise digits-only max 10
+                            if (raw.includes("@") || /[a-zA-Z]/.test(raw)) {
+                              field.onChange(raw.trim());
+                            } else {
+                              field.onChange(raw.replace(/\D/g, "").slice(0, 10));
+                            }
                           }}
                         />
                       </div>
