@@ -113,13 +113,29 @@ function ForgotPasswordModal({ open, onClose, initialPhone }: {
     setTimeout(() => otpInputRef.current?.focus(), 150);
   };
 
-  const sendOTP = () => {
+  const sendOTP = async () => {
     const digits = phone.replace(/\D/g, "").slice(0, 10);
     if (digits.length !== 10)  { setFormError("Enter a valid 10-digit phone number"); return; }
     if (password.length < 6)   { setFormError("Password must be at least 6 characters"); return; }
     if (password !== confirm)  { setFormError("Passwords do not match"); return; }
     setFormError("");
     setSending(true);
+
+    // ── Verify account exists before sending OTP ──────────────────────────────
+    try {
+      const checkRes = await fetch(`${BASE_URL}/api/auth/check-exists?phone=${digits}`);
+      const checkData = await checkRes.json().catch(() => ({}));
+      if (!checkRes.ok || !checkData.exists) {
+        setSending(false);
+        setFormError("No account found with this mobile number. Please check your number.");
+        return;
+      }
+    } catch {
+      setSending(false);
+      setFormError("Could not verify your account. Please check your connection.");
+      return;
+    }
+
     const identifier = `91${digits}`;
     // @ts-ignore
     if (typeof window.initSendOTP === "function") { doSendOTP(identifier); return; }

@@ -11,6 +11,15 @@ const router: IRouter = Router();
 
 const objectStorage = new ObjectStorageService();
 
+// ── Invalidate all active sessions for a given userId ────────────────────────
+async function invalidateUserSessions(userId: number): Promise<void> {
+  try {
+    await db.execute(sql`DELETE FROM sessions WHERE sess->>'userId' = ${String(userId)}`);
+  } catch (err) {
+    console.error("[invalidateUserSessions] Failed:", err);
+  }
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -177,7 +186,7 @@ router.post("/auth/login", async (req, res) => {
       user = rows[0];
     }
 
-    if (!user) return res.status(401).json({ error: "Invalid phone number or password" });
+    if (!user) return res.status(401).json({ error: "No account found with this mobile number. Please check and try again.", code: "USER_NOT_FOUND" });
 
     // Block removed accounts before password check
     if (user.role === "crew" && user.status === "removed") {
@@ -185,7 +194,7 @@ router.post("/auth/login", async (req, res) => {
     }
 
     const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) return res.status(401).json({ error: "Invalid phone number or password" });
+    if (!valid) return res.status(401).json({ error: "Incorrect password. Please try again.", code: "WRONG_PASSWORD" });
 
     (req as any).session.userId = user.id;
     (req as any).session.role = user.role;
@@ -650,6 +659,9 @@ router.post("/auth/reset-password", async (req, res) => {
 
     const passwordHash = await bcrypt.hash(String(newPassword), 10);
     await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, profile.userId));
+
+    // Immediately invalidate all existing sessions so old password can't be reused
+    await invalidateUserSessions(profile.userId);
 
     res.json({ success: true });
   } catch (err) {
