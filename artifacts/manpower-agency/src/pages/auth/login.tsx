@@ -8,12 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-context";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, Mail, Eye, EyeOff, Phone } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Eye, EyeOff, Loader2, Mail, Phone, X } from "lucide-react";
 
 const SUPPORT_EMAIL = "info@goteamcrew.in";
+const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
 const formSchema = z.object({
   phone: z.string().regex(/^\d{10}$/, "Enter a valid 10-digit phone number"),
@@ -33,6 +34,331 @@ function resolveRedirect(storedPath: string | null, role: string): string {
   return role === "admin" ? "/admin" : "/dashboard";
 }
 
+// ── Forgot Password Modal ─────────────────────────────────────────────────────
+function ForgotPasswordModal({ open, onClose, initialPhone }: {
+  open: boolean;
+  onClose: () => void;
+  initialPhone: string;
+}) {
+  const { toast } = useToast();
+  const [step, setStep]           = useState<"form" | "otp">("form");
+  const [phone, setPhone]         = useState(initialPhone);
+  const [password, setPassword]   = useState("");
+  const [confirm, setConfirm]     = useState("");
+  const [showPw, setShowPw]       = useState(false);
+  const [showCf, setShowCf]       = useState(false);
+  const [formError, setFormError] = useState("");
+  const [sending, setSending]     = useState(false);
+  const [otp, setOtp]             = useState("");
+  const [otpError, setOtpError]   = useState("");
+  const [otpTimer, setOtpTimer]   = useState(0);
+  const [cooldown, setCooldown]   = useState(0);
+  const [verifying, setVerifying] = useState(false);
+  const [resending, setResending] = useState(false);
+
+  const otpInputRef  = useRef<HTMLInputElement>(null);
+  const timerRef     = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cooldownRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setStep("form");
+      setPhone(initialPhone);
+      setPassword(""); setConfirm(""); setFormError("");
+      setOtp(""); setOtpError(""); setOtpTimer(0); setCooldown(0);
+      setSending(false); setVerifying(false); setResending(false);
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (cooldownRef.current) clearInterval(cooldownRef.current);
+    };
+  }, [open, initialPhone]);
+
+  const startTimer = (secs = 30) => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setOtpTimer(secs);
+    timerRef.current = setInterval(() => setOtpTimer(t => { if (t <= 1) { clearInterval(timerRef.current!); return 0; } return t - 1; }), 1000);
+  };
+
+  const startCooldown = (secs = 30) => {
+    if (cooldownRef.current) clearInterval(cooldownRef.current);
+    setCooldown(secs);
+    cooldownRef.current = setInterval(() => setCooldown(c => { if (c <= 1) { clearInterval(cooldownRef.current!); return 0; } return c - 1; }), 1000);
+  };
+
+  const doSendOTP = (identifier: string) => {
+    // @ts-ignore
+    window.initSendOTP({
+      widgetId: "36646f674475303238343136",
+      tokenAuth: "508849TqFl2WeiaRJg69df3ff5P1",
+      identifier,
+      exposeMethods: true,
+      success: () => {},
+      failure: (_err: unknown) => {
+        setOtpError("Verification failed. Please try again.");
+        setVerifying(false);
+      },
+    });
+    setSending(false);
+    startTimer(30);
+    startCooldown(30);
+    setStep("otp");
+    setOtp(""); setOtpError("");
+    setTimeout(() => otpInputRef.current?.focus(), 150);
+  };
+
+  const sendOTP = () => {
+    const digits = phone.replace(/\D/g, "").slice(0, 10);
+    if (digits.length !== 10)  { setFormError("Enter a valid 10-digit phone number"); return; }
+    if (password.length < 6)   { setFormError("Password must be at least 6 characters"); return; }
+    if (password !== confirm)  { setFormError("Passwords do not match"); return; }
+    setFormError("");
+    setSending(true);
+    const identifier = `91${digits}`;
+    // @ts-ignore
+    if (typeof window.initSendOTP === "function") { doSendOTP(identifier); return; }
+    const urls = ["https://verify.msg91.com/otp-provider.js", "https://verify.phone91.com/otp-provider.js"];
+    let idx = 0;
+    const tryNext = () => {
+      if (idx >= urls.length) {
+        setSending(false);
+        toast({ variant: "destructive", title: "OTP service unavailable", description: "Please check your connection and try again." });
+        return;
+      }
+      const s = document.createElement("script");
+      s.src = urls[idx]; s.async = true;
+      // @ts-ignore
+      s.onload = () => { if (typeof window.initSendOTP === "function") doSendOTP(identifier); else { idx++; tryNext(); } };
+      s.onerror = () => { idx++; tryNext(); };
+      document.head.appendChild(s);
+    };
+    tryNext();
+  };
+
+  const submitOtp = (code?: string) => {
+    const val = code ?? otp;
+    if (val.length !== 4) { setOtpError("Enter the 4-digit OTP"); return; }
+    setVerifying(true); setOtpError("");
+    // @ts-ignore
+    if (typeof window.verifyOtp !== "function") {
+      setVerifying(false); setOtpError("Verification service error. Please retry."); return;
+    }
+    // @ts-ignore
+    window.verifyOtp(val,
+      async () => {
+        try {
+          const res = await fetch(`${BASE_URL}/api/auth/reset-password`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ phone, newPassword: password }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || "Failed to reset password");
+          toast({ title: "Password changed successfully", description: "You can now sign in with your new password." });
+          onClose();
+        } catch (e: any) {
+          setOtpError(e?.message || "Failed to update password. Please try again.");
+          setVerifying(false);
+        }
+      },
+      (_err: unknown) => {
+        setVerifying(false);
+        setOtpError("Incorrect OTP. Please try again.");
+        setOtp("");
+        setTimeout(() => otpInputRef.current?.focus(), 50);
+      }
+    );
+  };
+
+  const resendOTP = () => {
+    if (otpTimer > 0 || resending || cooldown > 0) return;
+    setResending(true); setOtp(""); setOtpError("");
+    const identifier = `91${phone.replace(/\D/g, "").slice(0, 10)}`;
+    // @ts-ignore
+    if (typeof window.retryOtp === "function") {
+      // @ts-ignore
+      window.retryOtp(
+        () => { setResending(false); startTimer(30); startCooldown(30); },
+        () => { setResending(false); setOtpError("Failed to resend OTP. Try again."); }
+      );
+    // @ts-ignore
+    } else if (typeof window.initSendOTP === "function") {
+      doSendOTP(identifier);
+      setResending(false);
+    } else {
+      setResending(false); setOtpError("OTP service unavailable. Please try again.");
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/50 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 40 }}
+        transition={{ duration: 0.2 }}
+        className="w-full sm:max-w-sm bg-background rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border/60">
+          {step === "otp" ? (
+            <button onClick={() => { setStep("form"); setOtp(""); setOtpError(""); if (timerRef.current) clearInterval(timerRef.current); }}
+              className="text-muted-foreground hover:text-foreground transition-colors p-1 -ml-1">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          ) : <div className="w-7" />}
+          <h2 className="text-sm font-semibold text-foreground">
+            {step === "form" ? "Reset Password" : "Verify OTP"}
+          </h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors p-1 -mr-1">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="px-5 py-6 space-y-4">
+          {step === "form" && (
+            <>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Enter your registered phone number and choose a new password. We'll verify your identity with an OTP.
+              </p>
+
+              {/* Phone */}
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Phone number</label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <input
+                    type="tel" inputMode="numeric" maxLength={10}
+                    placeholder="10-digit mobile number"
+                    value={phone}
+                    onChange={e => { setPhone(e.target.value.replace(/\D/g, "").slice(0, 10)); setFormError(""); }}
+                    className="w-full h-12 pl-9 pr-4 rounded-xl bg-muted/50 border border-transparent focus:bg-background focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all text-sm outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* New password */}
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">New password</label>
+                <div className="relative">
+                  <input
+                    type={showPw ? "text" : "password"}
+                    placeholder="Min 6 characters"
+                    value={password}
+                    onChange={e => { setPassword(e.target.value); setFormError(""); }}
+                    className="w-full h-12 px-4 pr-12 rounded-xl bg-muted/50 border border-transparent focus:bg-background focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all text-sm outline-none"
+                  />
+                  <button type="button" onClick={() => setShowPw(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1">
+                    {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirm password */}
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Confirm password</label>
+                <div className="relative">
+                  <input
+                    type={showCf ? "text" : "password"}
+                    placeholder="Re-enter new password"
+                    value={confirm}
+                    onChange={e => { setConfirm(e.target.value); setFormError(""); }}
+                    className="w-full h-12 px-4 pr-12 rounded-xl bg-muted/50 border border-transparent focus:bg-background focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all text-sm outline-none"
+                  />
+                  <button type="button" onClick={() => setShowCf(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1">
+                    {showCf ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {formError && (
+                <p className="text-xs text-red-500 font-medium flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {formError}
+                </p>
+              )}
+
+              <Button className="w-full h-12 rounded-xl text-sm font-semibold gap-2" onClick={sendOTP} disabled={sending}>
+                {sending ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending OTP…</> : "Send OTP"}
+              </Button>
+            </>
+          )}
+
+          {step === "otp" && (
+            <>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Enter the OTP sent to <strong className="text-foreground">+91 {phone}</strong>
+              </p>
+
+              {/* 4-box OTP input */}
+              <div className="relative">
+                <input
+                  ref={otpInputRef}
+                  type="tel" inputMode="numeric"
+                  value={otp} maxLength={4}
+                  onChange={e => {
+                    const val = e.target.value.replace(/\D/g, "").slice(0, 4);
+                    setOtp(val); setOtpError("");
+                    if (val.length === 4) submitOtp(val);
+                  }}
+                  className="absolute inset-0 opacity-0 cursor-text w-full h-full"
+                  autoFocus
+                />
+                <div className="flex gap-3 justify-center" onClick={() => otpInputRef.current?.focus()}>
+                  {[0, 1, 2, 3].map(i => (
+                    <div key={i} className={`w-14 h-14 rounded-xl border-2 flex items-center justify-center text-2xl font-bold transition-all select-none
+                      ${otp.length === i && !verifying ? "border-primary bg-primary/5 shadow-sm" : otp[i] ? "border-primary/40 bg-muted/30" : "border-border bg-muted/30"}`}>
+                      {otp[i] ?? ""}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {otpError && (
+                <p className="text-xs text-red-500 font-medium text-center">{otpError}</p>
+              )}
+              {verifying && (
+                <p className="text-xs text-muted-foreground flex items-center justify-center gap-1.5">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying…
+                </p>
+              )}
+
+              <Button
+                className="w-full h-12 rounded-xl text-sm font-semibold gap-2"
+                onClick={() => submitOtp()}
+                disabled={otp.length < 4 || verifying}
+              >
+                {verifying
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Verifying…</>
+                  : "Change Password"}
+              </Button>
+
+              {/* Resend */}
+              <div className="text-center pt-1">
+                {otpTimer > 0 ? (
+                  <p className="text-xs text-muted-foreground">Resend OTP in <strong className="tabular-nums">{otpTimer}s</strong></p>
+                ) : (
+                  <button
+                    onClick={resendOTP}
+                    disabled={resending || cooldown > 0}
+                    className="text-xs text-primary font-semibold hover:underline disabled:opacity-50 disabled:no-underline transition-opacity"
+                  >
+                    {resending ? "Resending…" : cooldown > 0 ? `Resend in ${cooldown}s` : "Resend OTP"}
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ── Login Page ────────────────────────────────────────────────────────────────
 export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
@@ -40,6 +366,12 @@ export default function Login() {
   const queryClient = useQueryClient();
   const [accountRemoved, setAccountRemoved] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [fpOpen, setFpOpen] = useState(false);
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: { phone: "", password: "" },
+  });
 
   useEffect(() => {
     if (user) {
@@ -49,14 +381,8 @@ export default function Login() {
     }
   }, [user, setLocation]);
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: { phone: "", password: "" },
-  });
-
   const loginMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
-      const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
       const res = await fetch(`${BASE_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -206,9 +532,13 @@ export default function Login() {
                   <FormItem>
                     <div className="flex items-center justify-between">
                       <FormLabel className="text-foreground font-semibold">Password</FormLabel>
-                      <span className="text-sm font-medium text-primary hover:underline cursor-pointer">
+                      <button
+                        type="button"
+                        onClick={() => setFpOpen(true)}
+                        className="text-sm font-medium text-primary hover:underline"
+                      >
                         Forgot password?
-                      </span>
+                      </button>
                     </div>
                     <FormControl>
                       <div className="relative">
@@ -252,6 +582,16 @@ export default function Login() {
           </p>
         </motion.div>
       </div>
+
+      <AnimatePresence>
+        {fpOpen && (
+          <ForgotPasswordModal
+            open={fpOpen}
+            onClose={() => setFpOpen(false)}
+            initialPhone={form.getValues("phone")}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

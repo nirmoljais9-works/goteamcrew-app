@@ -626,6 +626,38 @@ router.get("/auth/crew-profile/:crewId", async (req, res) => {
   }
 });
 
+// ── Reset password (called after OTP verified on frontend) ───────────────────
+router.post("/auth/reset-password", async (req, res) => {
+  try {
+    const { phone, newPassword } = req.body;
+    if (!phone || !newPassword) return res.status(400).json({ error: "Phone and new password are required" });
+    if (String(newPassword).length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
+
+    const digits = String(phone).replace(/\D/g, "");
+    let phoneBare = digits;
+    if (phoneBare.startsWith("91") && phoneBare.length === 12) phoneBare = phoneBare.slice(2);
+    phoneBare = phoneBare.slice(-10);
+    if (phoneBare.length !== 10) return res.status(400).json({ error: "Invalid phone number" });
+
+    const [profile] = await db
+      .select({ userId: crewProfilesTable.userId })
+      .from(crewProfilesTable)
+      .where(or(
+        eq(crewProfilesTable.phone, phoneBare),
+        eq(crewProfilesTable.phone, `+91${phoneBare}`),
+      ));
+    if (!profile) return res.status(404).json({ error: "No account found with this phone number" });
+
+    const passwordHash = await bcrypt.hash(String(newPassword), 10);
+    await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, profile.userId));
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("[reset-password]", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.post("/auth/logout", (req, res) => {
   (req as any).session.destroy(() => {
     res.json({ success: true });
