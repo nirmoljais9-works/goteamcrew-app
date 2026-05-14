@@ -191,8 +191,21 @@ export default function AdminCrew() {
 
   const buildWaTempApproveUrl = (phone: string, name: string) => {
     const waPhone = formatWaPhone(phone);
-    const msg = `Hi ${name} 👋\n\nYour Goteamcrew profile is now activated 🎉\n\nComplete your profile to start getting event work updates on WhatsApp and increase your chances of getting shortlisted.\n\nJust add a few photos + a short intro video and you're ready 🚀\n\nLogin:\nhttps://goteamcrew.com/login\n\n— Team Goteamcrew`;
-    return `https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`;
+    const lines = [
+      `Hi ${name} \u{1F44B}`,
+      "",
+      `Your Goteamcrew profile is now activated \u{1F389}`,
+      "",
+      "Complete your profile to start getting event work updates on WhatsApp and increase your chances of getting shortlisted.",
+      "",
+      `Just add a few photos + a short intro video and you're ready \u{1F680}`,
+      "",
+      "Login:",
+      "https://goteamcrew.com/login",
+      "",
+      "\u2014 Team Goteamcrew",
+    ];
+    return `https://wa.me/${waPhone}?text=${encodeURIComponent(lines.join("\n"))}`;
   };
 
   const handleApprove = (crewId: number, name: string, phone: string) => {
