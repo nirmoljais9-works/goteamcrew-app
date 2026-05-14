@@ -10,7 +10,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { UploadCloud, FileImage, FileText, CheckCircle, ArrowRight, ArrowLeft, CalendarDays, Camera as CameraIcon, AlertTriangle, X } from "lucide-react";
 import { INDIA_STATES, STATE_CITIES } from "@/data/india-locations";
 
-const ROLE_OPTIONS = [
+const FRESHER_ROLE_OPTIONS = [
+  "Volunteer / Crew",
+  "Promoter / Host",
+  "Model",
+  "Hostess",
+  "Emcee / Anchor",
+] as const;
+
+const EXPERIENCED_ROLE_OPTIONS = [
   "Model",
   "Promoter / Host",
   "Hostess",
@@ -2344,97 +2352,24 @@ export default function Register() {
 
               {step === 2 && (
                 <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
-                  {/* Roles — multi-select */}
-                  <div id="field-categories" className="space-y-2">
-                    <Label>Roles interested in <span className="text-red-500">*</span></Label>
-                    <p className="text-xs text-muted-foreground -mt-1">Select one or more roles you would like to work in</p>
-                    <div className="rounded-xl border border-input bg-muted/50 p-3 space-y-2.5">
-                      {ROLE_OPTIONS.map(role => {
-                        const checked = formData.categories.includes(role);
-                        return (
-                          <label key={role} className="flex items-center gap-3 cursor-pointer group">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => {
-                                const next = checked
-                                  ? formData.categories.filter(c => c !== role)
-                                  : [...formData.categories, role];
-                                setFormData(prev => ({
-                                  ...prev,
-                                  categories: next,
-                                  ...(role === "Other (Please specify)" && !next.includes(role) ? { customRole: "" } : {}),
-                                }));
-                              }}
-                              className="h-4 w-4 shrink-0 rounded border-gray-300 accent-primary cursor-pointer"
-                            />
-                            <span className={`text-sm font-medium transition-colors ${checked ? "text-primary" : "text-foreground group-hover:text-primary"}`}>{role}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    <p className="text-xs text-muted-foreground/80 flex items-center gap-1">
-                      <span>💡</span> Not sure? Start with <span className="font-medium text-foreground">Volunteer</span> or <span className="font-medium text-foreground">Promoter / Host</span>
-                    </p>
-
-                    {/* Selected role chips */}
-                    {formData.categories.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pt-0.5">
-                        {formData.categories.map(cat => (
-                          <span key={cat} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
-                            {cat === "Other (Please specify)" ? (formData.customRole.trim() || "Other") : cat}
-                            <button type="button" onClick={() => setFormData(prev => ({
-                              ...prev,
-                              categories: prev.categories.filter(c => c !== cat),
-                              ...(cat === "Other (Please specify)" ? { customRole: "" } : {}),
-                            }))} className="hover:text-rose-500 transition-colors ml-0.5">
-                              <X className="w-3 h-3" />
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Warning for multiple roles */}
-                    <AnimatePresence>
-                      {formData.categories.length > 1 && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-                          transition={{ duration: 0.2 }}
-                          className="flex items-start gap-2.5 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5"
-                        >
-                          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                          <p className="text-xs text-amber-800 leading-snug">
-                            Selecting multiple roles may lead to profile rejection. You may be asked to provide proofs/photographs for each selected role after registration. Please choose carefully.
-                          </p>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                    {/* Other specify input */}
-                    <AnimatePresence>
-                      {formData.categories.includes("Other (Please specify)") && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-                          transition={{ duration: 0.2 }}
-                          className="space-y-1.5"
-                        >
-                          <Label htmlFor="customRole">Please specify your role <span className="text-red-500">*</span></Label>
-                          <Input
-                            id="customRole"
-                            name="customRole"
-                            value={formData.customRole}
-                            onChange={handleInputChange}
-                            placeholder="e.g. Dancer, Brand Ambassador..."
-                            className="h-12 bg-muted/50"
-                          />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
+                  {/* Experience Level — FIRST */}
                   <div id="field-experience" className="space-y-2">
                     <Label>Experience Level <span className="text-red-500">*</span></Label>
-                    <Select value={formData.experienceLevel} onValueChange={val => handleSelectChange("experienceLevel", val)} required>
+                    <Select
+                      value={formData.experienceLevel}
+                      onValueChange={val => {
+                        const newRoles = val === "Fresher"
+                          ? (FRESHER_ROLE_OPTIONS as readonly string[])
+                          : (EXPERIENCED_ROLE_OPTIONS as readonly string[]);
+                        setFormData(prev => ({
+                          ...prev,
+                          experienceLevel: val,
+                          categories: prev.categories.filter(c => newRoles.includes(c)),
+                          ...(val === "Fresher" ? { customRole: "" } : {}),
+                        }));
+                      }}
+                      required
+                    >
                       <SelectTrigger className="h-12 bg-muted/50"><SelectValue placeholder="Select your experience level" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Fresher">Fresher (0 years)</SelectItem>
@@ -2443,6 +2378,119 @@ export default function Register() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Roles — dynamic based on experience level */}
+                  <AnimatePresence mode="wait">
+                    {formData.experienceLevel && (() => {
+                      const isFresher = formData.experienceLevel === "Fresher";
+                      const activeRoles = isFresher ? FRESHER_ROLE_OPTIONS : EXPERIENCED_ROLE_OPTIONS;
+                      return (
+                        <motion.div
+                          key={isFresher ? "fresher-roles" : "experienced-roles"}
+                          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                          transition={{ duration: 0.2 }}
+                          id="field-categories"
+                          className="space-y-2"
+                        >
+                          <Label>
+                            {isFresher ? "Roles interested in?" : "Roles interested in"}
+                            {" "}<span className="text-red-500">*</span>
+                          </Label>
+                          <p className="text-xs text-muted-foreground -mt-1">
+                            {isFresher
+                              ? "Select one or more roles you would like to try"
+                              : "Select one or more roles you would like to work in"}
+                          </p>
+                          <div className="rounded-xl border border-input bg-muted/50 p-3 space-y-2.5">
+                            {activeRoles.map(role => {
+                              const checked = formData.categories.includes(role);
+                              return (
+                                <label key={role} className="flex items-center gap-3 cursor-pointer group">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => {
+                                      const next = checked
+                                        ? formData.categories.filter(c => c !== role)
+                                        : [...formData.categories, role];
+                                      setFormData(prev => ({
+                                        ...prev,
+                                        categories: next,
+                                        ...(role === "Other (Please specify)" && !next.includes(role) ? { customRole: "" } : {}),
+                                      }));
+                                    }}
+                                    className="h-4 w-4 shrink-0 rounded border-gray-300 accent-primary cursor-pointer"
+                                  />
+                                  <span className={`text-sm font-medium transition-colors ${checked ? "text-primary" : "text-foreground group-hover:text-primary"}`}>{role}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+
+                          {isFresher && (
+                            <p className="text-xs text-muted-foreground/80 flex items-center gap-1">
+                              <span>💡</span> Not sure? Start with <span className="font-medium text-foreground">Volunteer / Crew</span> or <span className="font-medium text-foreground">Promoter / Host</span>
+                            </p>
+                          )}
+
+                          {/* Selected role chips */}
+                          {formData.categories.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 pt-0.5">
+                              {formData.categories.map(cat => (
+                                <span key={cat} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                                  {cat === "Other (Please specify)" ? (formData.customRole.trim() || "Other") : cat}
+                                  <button type="button" onClick={() => setFormData(prev => ({
+                                    ...prev,
+                                    categories: prev.categories.filter(c => c !== cat),
+                                    ...(cat === "Other (Please specify)" ? { customRole: "" } : {}),
+                                  }))} className="hover:text-rose-500 transition-colors ml-0.5">
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Warning for multiple roles */}
+                          <AnimatePresence>
+                            {formData.categories.length > 1 && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                                transition={{ duration: 0.2 }}
+                                className="flex items-start gap-2.5 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5"
+                              >
+                                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                <p className="text-xs text-amber-800 leading-snug">
+                                  Selecting multiple roles may lead to profile rejection. You may be asked to provide proofs/photographs for each selected role after registration. Please choose carefully.
+                                </p>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+
+                          {/* Other specify input — experienced only */}
+                          <AnimatePresence>
+                            {formData.categories.includes("Other (Please specify)") && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                                transition={{ duration: 0.2 }}
+                                className="space-y-1.5"
+                              >
+                                <Label htmlFor="customRole">Please specify your role <span className="text-red-500">*</span></Label>
+                                <Input
+                                  id="customRole"
+                                  name="customRole"
+                                  value={formData.customRole}
+                                  onChange={handleInputChange}
+                                  placeholder="e.g. Dancer, Brand Ambassador..."
+                                  className="h-12 bg-muted/50"
+                                />
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </motion.div>
+                      );
+                    })()}
+                  </AnimatePresence>
                   <div id="field-referral" className="space-y-2">
                     <Label htmlFor="referralSource">How did you hear about us? <span className="text-red-500">*</span></Label>
                     <select
