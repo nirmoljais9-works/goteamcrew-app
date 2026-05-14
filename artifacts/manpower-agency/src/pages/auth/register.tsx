@@ -12,7 +12,7 @@ import { INDIA_STATES, STATE_CITIES } from "@/data/india-locations";
 
 const ROLE_OPTIONS = [
   "Model",
-  "Host / Promoter / Usher",
+  "Promoter / Host",
   "Hostess",
   "Volunteer",
   "Supervisor",
@@ -2344,9 +2344,10 @@ export default function Register() {
 
               {step === 2 && (
                 <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
-                  {/* I am — multi-select */}
+                  {/* Roles — multi-select */}
                   <div id="field-categories" className="space-y-2">
-                    <Label>I am <span className="text-red-500">*</span></Label>
+                    <Label>Roles interested in <span className="text-red-500">*</span></Label>
+                    <p className="text-xs text-muted-foreground -mt-1">Select one or more roles you would like to work in</p>
                     <div className="rounded-xl border border-input bg-muted/50 p-3 space-y-2.5">
                       {ROLE_OPTIONS.map(role => {
                         const checked = formData.categories.includes(role);
@@ -2372,6 +2373,9 @@ export default function Register() {
                         );
                       })}
                     </div>
+                    <p className="text-xs text-muted-foreground/80 flex items-center gap-1">
+                      <span>💡</span> Not sure? Start with <span className="font-medium text-foreground">Volunteer</span> or <span className="font-medium text-foreground">Promoter / Host</span>
+                    </p>
 
                     {/* Selected role chips */}
                     {formData.categories.length > 0 && (
