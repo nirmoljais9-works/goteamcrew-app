@@ -1,0 +1,76 @@
+Fix the Live Selfie camera freezing/delay issue.
+
+Current issue:
+- When user opens Live Selfie first time, camera freezes for 10–20 seconds
+- “Starting face detection…” stays stuck
+- Sometimes works only after cancel + retry
+- Creates bad UX and confusion during registration
+
+Required fixes:
+
+1. Optimize camera initialization
+- Start camera stream immediately when modal opens
+- Do NOT wait for face detection model before showing camera preview
+- Load face detection in background asynchronously
+
+2. Reduce first-load delay
+- Preload face detection model earlier in registration flow
+OR
+- Cache/load model once globally instead of loading every time selfie opens
+
+3. Add proper loading states
+Current:
+“Starting face detection…”
+
+Replace with cleaner step-by-step states:
+- Opening camera…
+- Camera ready
+- Detecting face…
+- Face detected ✅
+
+4. Prevent frozen UI
+If camera/model takes more than 5 seconds:
+- Show retry button automatically
+- Show message:
+“Camera is taking longer than usual. Try again.”
+
+5. Fix cancel/reopen issue
+Currently reopening sometimes fixes detection instantly.
+This means:
+- Previous camera stream/model is not cleaned properly
+- OR model stays cached only after first attempt
+
+Ensure:
+- Camera stream cleanup on cancel
+- Proper reuse of already loaded face detection model
+- No duplicate initialization loops
+
+6. Performance improvements
+- Reduce face detection interval/frame processing
+- Avoid running detection before video metadata is loaded
+- Wait for:
+video.readyState >= 2
+before starting detection loop
+
+7. Mobile Safari optimization (important)
+Issue mostly happening on iPhone Safari.
+
+Ensure:
+- playsInline
+- muted
+- autoPlay
+are properly set on video element
+
+Also ensure:
+- getUserMedia starts only after user interaction
+- no unnecessary rerenders resetting video stream
+
+8. UX improvement
+Disable “Waiting…” button state forever issue.
+
+If face not detected within few seconds:
+- allow manual retry
+- never keep button stuck permanently
+
+Goal:
+Live selfie should open instantly and feel smooth like Instagram/UPI selfie verification.

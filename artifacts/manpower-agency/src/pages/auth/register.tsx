@@ -474,6 +474,11 @@ export default function Register() {
   });
   const [fdAvailable, setFdAvailable] = useState(false);
   const detectionActiveRef = useRef(false);
+  const fdAvailableRef = useRef(false); // mirror of fdAvailable readable inside timers/closures
+  const cameraStuckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [cameraStuck, setCameraStuck] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mpClassRef = useRef<any>(null); // cached MediaPipe FaceDetection class — avoids re-download
 
   // Motion / liveness
   const [motionDetected, setMotionDetected] = useState(false);
@@ -499,7 +504,7 @@ export default function Register() {
   // ── derived: circle colour + status message ──────────────────────────────
   const circleStatus = (() => {
     // Loading: face detection model still initialising
-    if (!fdAvailable)         return { color: "#9ca3af", dash: true,  msg: "Starting face detection…" };
+    if (!fdAvailable)         return { color: "#9ca3af", dash: true,  msg: cameraStuck ? "Camera taking longer than usual." : "Camera ready · Starting detection…" };
     // Live face checks (same logic for Chrome FaceDetector + MediaPipe)
     if (!faceState.detected)  return { color: "#9ca3af", dash: true,  msg: "No face detected. Align your face inside the circle" };
     if (faceState.multiple)   return { color: "#f87171", dash: true,  msg: "Multiple faces detected. Please be alone" };
@@ -511,7 +516,7 @@ export default function Register() {
 
   // ── KYC-style dynamic guidance shown at the top of the camera view ────────
   const topInstruction = (() => {
-    if (!fdAvailable)                      return "Starting face detection…";
+    if (!fdAvailable)                      return cameraStuck ? "Tap Retry to restart" : "Camera ready · Starting detection…";
     if (!faceState.detected)               return "Align your face inside the circle";
     if (faceState.multiple)                return "Only one face allowed";
     if (faceState.tooSmall)                return "Move closer to the camera";
@@ -619,7 +624,10 @@ export default function Register() {
 
     // ── Path A: Chrome's built-in FaceDetector API ──────────────────────────
     if ("FaceDetector" in window) {
+      fdAvailableRef.current = true;
       setFdAvailable(true);
+      setCameraStuck(false);
+      if (cameraStuckTimerRef.current) { clearTimeout(cameraStuckTimerRef.current); cameraStuckTimerRef.current = null; }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const fd = new (window as any).FaceDetector({ fastMode: true, maxDetectedFaces: 3 });
       const tick = async () => {
@@ -653,17 +661,21 @@ export default function Register() {
     }
 
     // ── Path B: MediaPipe Face Detection (iOS / Safari / Firefox) ───────────
-    // Dynamic import keeps MediaPipe out of the main bundle — only loads when
-    // the camera is actually opened, so other pages are completely unaffected.
+    // Use pre-loaded class (from mount-time preload) if available; otherwise import now.
     const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let FaceDetectionClass: any;
-    try {
-      const mp = await import("@mediapipe/face_detection");
-      FaceDetectionClass = mp.FaceDetection;
-    } catch {
-      // MediaPipe failed to load — fall back to skin-tone post-capture check only
-      return;
+    if (mpClassRef.current) {
+      FaceDetectionClass = mpClassRef.current;
+    } else {
+      try {
+        const mp = await import("@mediapipe/face_detection");
+        FaceDetectionClass = mp.FaceDetection;
+        mpClassRef.current = FaceDetectionClass; // cache for next open
+      } catch {
+        // MediaPipe failed to load — fall back to skin-tone post-capture check only
+        return;
+      }
     }
     const mpFd = new FaceDetectionClass({
       locateFile: (file: string) => `${BASE_URL}/mp-fd/${file}`,
@@ -673,7 +685,12 @@ export default function Register() {
     mpFd.onResults((results: { detections?: Array<{ boundingBox?: { xCenter: number; yCenter: number; width: number; height: number } }> }) => {
       if (!detectionActiveRef.current) return;
       // Mark as available on first callback (model finished loading)
-      setFdAvailable(true);
+      if (!fdAvailableRef.current) {
+        fdAvailableRef.current = true;
+        setFdAvailable(true);
+        setCameraStuck(false);
+        if (cameraStuckTimerRef.current) { clearTimeout(cameraStuckTimerRef.current); cameraStuckTimerRef.current = null; }
+      }
       const vw = video.videoWidth || 1, vh = video.videoHeight || 1;
       const detections = results.detections ?? [];
       applyFaceBoxes(
@@ -713,6 +730,9 @@ export default function Register() {
     setCapturedTemp(null);
     resetMotion(); // clear liveness for this new session — no cached state from previous open
     faceDetectedRef.current = false;
+    fdAvailableRef.current = false;
+    setCameraStuck(false);
+    if (cameraStuckTimerRef.current) { clearTimeout(cameraStuckTimerRef.current); cameraStuckTimerRef.current = null; }
     setFaceState({ detected: false, inCircle: false, multiple: false, tooSmall: false });
     detectionActiveRef.current = false;
     setCameraOpen(true);
@@ -734,6 +754,11 @@ export default function Register() {
         startMotionDetection(video);
         startDetectionLoop(video);
       });
+      // 5-second stuck guard — if FD model hasn't reported ready, show retry prompt
+      if (cameraStuckTimerRef.current) clearTimeout(cameraStuckTimerRef.current);
+      cameraStuckTimerRef.current = setTimeout(() => {
+        if (!fdAvailableRef.current) setCameraStuck(true);
+      }, 5000);
     } catch (err: unknown) {
       setCameraLoading(false);
       setCameraOpen(false);
@@ -758,9 +783,21 @@ export default function Register() {
     return () => {
       stopStream(); stopMotionDetection(); detectionActiveRef.current = false;
       mediapieFdRef.current?.close(); mediapieFdRef.current = null;
+      if (cameraStuckTimerRef.current) { clearTimeout(cameraStuckTimerRef.current); cameraStuckTimerRef.current = null; }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cameraOpen]);
+
+  // Pre-load MediaPipe face detection class on mount so it is cached before camera opens.
+  // This eliminates the 10–20 s first-open delay on iOS / Safari / Firefox.
+  useEffect(() => {
+    if (!("FaceDetector" in window) && !mpClassRef.current) {
+      import("@mediapipe/face_detection").then(mp => {
+        mpClassRef.current = mp.FaceDetection;
+      }).catch(() => { /* ignore — will import on demand when camera opens */ });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto-hold: once all validations pass, wait 1.5 s before enabling capture
   useEffect(() => {
@@ -778,8 +815,12 @@ export default function Register() {
     // Close MediaPipe instance if it was used
     mediapieFdRef.current?.close();
     mediapieFdRef.current = null;
+    setCameraStuck(false);
+    if (cameraStuckTimerRef.current) { clearTimeout(cameraStuckTimerRef.current); cameraStuckTimerRef.current = null; }
     setTimeout(() => setCameraOpen(false), 280);
   };
+
+  const retryCamera = () => { closeCamera(); setTimeout(openCamera, 350); };
 
   // Capture → re-verify live conditions → post-capture checks → save or error
   const doCapture = async (video: HTMLVideoElement) => {
@@ -2808,11 +2849,21 @@ export default function Register() {
                         <div className="p-3 flex gap-2 bg-gray-900">
                           <Button
                             type="button"
-                            onClick={capturePhoto}
-                            disabled={!canCapture}
-                            className="flex-1 h-11 font-semibold bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                            onClick={cameraStuck && !fdAvailable ? retryCamera : capturePhoto}
+                            disabled={!canCapture && !(cameraStuck && !fdAvailable)}
+                            className={`flex-1 h-11 font-semibold text-white transition-opacity disabled:opacity-40 disabled:cursor-not-allowed ${cameraStuck && !fdAvailable ? "bg-amber-600 hover:bg-amber-700" : "bg-indigo-600 hover:bg-indigo-700"}`}
                           >
-                            {cameraLoading ? "Preparing…" : canCapture ? "📸 Take Photo" : logicalReady ? "Hold steady…" : "Waiting…"}
+                            {cameraLoading
+                              ? "Opening camera…"
+                              : cameraStuck && !fdAvailable
+                                ? "↻ Retry"
+                                : canCapture
+                                  ? "📸 Take Photo"
+                                  : logicalReady
+                                    ? "Hold steady…"
+                                    : !fdAvailable
+                                      ? "Detecting…"
+                                      : "Waiting…"}
                           </Button>
                           <Button type="button" variant="outline" onClick={closeCamera} className="h-11 border-gray-600 text-gray-200 hover:bg-gray-800">
                             Cancel
