@@ -1744,7 +1744,7 @@ export default function Register() {
         <div className="bg-white px-8 py-6 border-b border-gray-100">
           {/* Title row */}
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Crew Registration Forms</h2>
+            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Crew Registration Form</h2>
             <span className="text-sm font-medium text-gray-400">Step {step}/4</span>
           </div>
 
