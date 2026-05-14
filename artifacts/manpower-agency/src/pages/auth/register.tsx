@@ -2372,7 +2372,7 @@ export default function Register() {
                     >
                       <SelectTrigger className="h-12 bg-muted/50"><SelectValue placeholder="Select your experience level" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Fresher">Fresher (0 years)</SelectItem>
+                        <SelectItem value="Fresher">Fresher / No experience</SelectItem>
                         <SelectItem value="1-2 years">1-2 years</SelectItem>
                         <SelectItem value="2+ years">2+ years</SelectItem>
                       </SelectContent>
@@ -2404,12 +2404,15 @@ export default function Register() {
                           <div className="rounded-xl border border-input bg-muted/50 p-3 space-y-2.5">
                             {activeRoles.map(role => {
                               const checked = formData.categories.includes(role);
+                              const atFresherLimit = isFresher && formData.categories.length >= 3 && !checked;
                               return (
-                                <label key={role} className="flex items-center gap-3 cursor-pointer group">
+                                <label key={role} className={`flex items-center gap-3 ${atFresherLimit ? "opacity-40 cursor-not-allowed" : "cursor-pointer group"}`}>
                                   <input
                                     type="checkbox"
                                     checked={checked}
+                                    disabled={atFresherLimit}
                                     onChange={() => {
+                                      if (atFresherLimit) return;
                                       const next = checked
                                         ? formData.categories.filter(c => c !== role)
                                         : [...formData.categories, role];
@@ -2419,15 +2422,21 @@ export default function Register() {
                                         ...(role === "Other (Please specify)" && !next.includes(role) ? { customRole: "" } : {}),
                                       }));
                                     }}
-                                    className="h-4 w-4 shrink-0 rounded border-gray-300 accent-primary cursor-pointer"
+                                    className="h-4 w-4 shrink-0 rounded border-gray-300 accent-primary cursor-pointer disabled:cursor-not-allowed"
                                   />
-                                  <span className={`text-sm font-medium transition-colors ${checked ? "text-primary" : "text-foreground group-hover:text-primary"}`}>{role}</span>
+                                  <span className={`text-sm font-medium transition-colors ${checked ? "text-primary" : atFresherLimit ? "text-muted-foreground" : "text-foreground group-hover:text-primary"}`}>{role}</span>
                                 </label>
                               );
                             })}
                           </div>
 
-                          {isFresher && (
+                          {isFresher && formData.categories.length >= 3 && (
+                            <p className="text-xs text-primary/80 font-medium flex items-center gap-1">
+                              <span>✓</span> You can select up to 3 roles
+                            </p>
+                          )}
+
+                          {isFresher && formData.categories.length < 3 && (
                             <p className="text-xs text-muted-foreground/80 flex items-center gap-1">
                               <span>💡</span> Not sure? Start with <span className="font-medium text-foreground">Volunteer / Crew</span> or <span className="font-medium text-foreground">Promoter / Host</span>
                             </p>
@@ -2451,9 +2460,9 @@ export default function Register() {
                             </div>
                           )}
 
-                          {/* Warning for multiple roles */}
+                          {/* Warning for multiple roles — experienced crew only */}
                           <AnimatePresence>
-                            {formData.categories.length > 1 && (
+                            {!isFresher && formData.categories.length > 1 && (
                               <motion.div
                                 initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
                                 transition={{ duration: 0.2 }}
@@ -2461,7 +2470,7 @@ export default function Register() {
                               >
                                 <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                                 <p className="text-xs text-amber-800 leading-snug">
-                                  Selecting multiple roles may lead to profile rejection. You may be asked to provide proofs/photographs for each selected role after registration. Please choose carefully.
+                                  Selecting multiple roles may lead to profile rejection. You may be asked to provide proofs/photos for each selected role after registration. Please choose carefully.
                                 </p>
                               </motion.div>
                             )}
