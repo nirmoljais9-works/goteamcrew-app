@@ -213,15 +213,21 @@ router.post("/auth/login", async (req, res) => {
       }
     }
 
-    res.json({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      status: user.status,
-      createdAt: user.createdAt,
-      rejectionReason,
-      crewProfileId,
+    // Explicitly save session to PostgreSQL before responding — prevents the
+    // race condition on VPS where the client's next /api/auth/me arrives before
+    // connect-pg-simple finishes the async write, causing an immediate 401.
+    (req as any).session.save((saveErr: unknown) => {
+      if (saveErr) return res.status(500).json({ error: "Server error" });
+      res.json({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        status: user.status,
+        createdAt: user.createdAt,
+        rejectionReason,
+        crewProfileId,
+      });
     });
   } catch {
     res.status(500).json({ error: "Server error" });
@@ -428,14 +434,17 @@ router.post("/auth/register", (req, res) => {
 
         (req as any).session.userId = updatedUser.id;
         (req as any).session.role = updatedUser.role;
-        return res.status(200).json({
-          id: updatedUser.id,
-          email: updatedUser.email,
-          name: updatedUser.name,
-          role: updatedUser.role,
-          status: updatedUser.status,
-          createdAt: updatedUser.createdAt,
-          reapplied: true,
+        return (req as any).session.save((saveErr: unknown) => {
+          if (saveErr) return res.status(500).json({ error: "Server error" });
+          res.status(200).json({
+            id: updatedUser.id,
+            email: updatedUser.email,
+            name: updatedUser.name,
+            role: updatedUser.role,
+            status: updatedUser.status,
+            createdAt: updatedUser.createdAt,
+            reapplied: true,
+          });
         });
       }
 
@@ -497,9 +506,12 @@ router.post("/auth/register", (req, res) => {
         heardAboutUs: heardAboutUsValue,
       }).returning({ id: crewProfilesTable.id });
 
-      // ── Set session and respond immediately — don't wait for referral ────────
+      // ── Set session — save explicitly before responding to avoid race condition ─
       (req as any).session.userId = user.id;
       (req as any).session.role = user.role;
+      await new Promise<void>((resolve, reject) =>
+        (req as any).session.save((err: unknown) => (err ? reject(err) : resolve()))
+      );
       res.status(201).json({
         id: user.id,
         email: user.email,
