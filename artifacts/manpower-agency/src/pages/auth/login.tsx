@@ -422,11 +422,13 @@ export default function Login() {
       return data;
     },
     onSuccess: (data) => {
+      // Populate the auth cache first. Navigation is intentionally deferred
+      // to the useEffect([user]) below, which fires only after React Query has
+      // propagated the updated user to the AuthProvider's useGetMe observer.
+      // Calling setLocation here (before propagation) causes ProtectedRoute to
+      // render with user=null and immediately redirect back to /login.
       queryClient.setQueryData(["/api/auth/me"], data);
       toast({ title: "Welcome back!", description: "Successfully logged in." });
-      const stored = sessionStorage.getItem("loginRedirect");
-      sessionStorage.removeItem("loginRedirect");
-      setLocation(resolveRedirect(stored, data.role));
     },
     onError: (error: any) => {
       const code = error?.data?.code;
