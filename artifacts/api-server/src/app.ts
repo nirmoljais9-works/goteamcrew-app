@@ -11,8 +11,32 @@ import router from "./routes";
 
 const app: Express = express();
 
+const isProduction = process.env.NODE_ENV === "production";
+
+// ── CORS ─────────────────────────────────────────────────────────────────────
+// Allow the production domain + any Replit preview URL.
+// CORS_ORIGIN env var can override with a comma-separated list of origins.
+const explicitOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",").map(o => o.trim())
+  : [];
+
 app.use(cors({
-  origin: true,
+  origin: (origin, callback) => {
+    // Same-origin requests (no Origin header) — always allow
+    if (!origin) return callback(null, true);
+    // Env-var override takes precedence
+    if (explicitOrigins.includes(origin)) return callback(null, true);
+    // Production domain (www + apex)
+    if (origin === "https://goteamcrew.com" || origin === "https://www.goteamcrew.com") {
+      return callback(null, true);
+    }
+    // Replit preview & worf proxy URLs
+    if (origin.endsWith(".replit.dev") || origin.endsWith(".worf.replit.dev")) {
+      return callback(null, true);
+    }
+    // Reflect all other origins in development; reject in production
+    return callback(null, !isProduction);
+  },
   credentials: true,
 }));
 app.use(express.json({ limit: "10mb" }));
@@ -21,8 +45,9 @@ app.use(cookieParser());
 
 const PgStore = connectPgSimple(session);
 
-const isProduction = process.env.NODE_ENV === "production";
-
+// ── Trust the first upstream proxy (nginx on VPS, Replit proxy in dev) ───────
+// Required so req.secure reflects the user-facing protocol (HTTPS), not the
+// internal HTTP connection between nginx and Node.
 app.set("trust proxy", 1);
 
 app.use(session({
@@ -35,9 +60,14 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: "auto",   // auto = secure when request is HTTPS, plain when HTTP
+    // secure: true  — both VPS (HTTPS) and Replit (HTTPS) are always HTTPS.
+    // Explicit true avoids relying on nginx sending X-Forwarded-Proto correctly.
+    secure: true,
     httpOnly: true,
-    sameSite: isProduction ? "lax" : "none", // lax for same-origin production; none for Replit cross-origin proxy
+    // sameSite "none" + secure allows the cookie to travel on any request
+    // (same-origin or cross-origin). Required for the Replit dev proxy and also
+    // the safest choice for VPS where nginx topology can affect same-site logic.
+    sameSite: "none",
     maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
   },
 }));
