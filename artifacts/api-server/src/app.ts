@@ -3,6 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
+import pg from "pg";
 import path from "path";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
@@ -45,6 +46,22 @@ app.use(cookieParser());
 
 const PgStore = connectPgSimple(session);
 
+// ── Session TTL — 30 days ─────────────────────────────────────────────────────
+const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;   // 30 days in ms
+const SESSION_MAX_AGE_SEC = SESSION_MAX_AGE_MS / 1000;  // 30 days in seconds
+
+// ── Dedicated pg pool for session store ──────────────────────────────────────
+// Using a Pool (not conString) gives the store a persistent, reused connection
+// rather than opening a new one on every session read/write. This prevents
+// "connection dropped mid-session" logouts on VPS after API restarts.
+const sessionPool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 5,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+  ssl: process.env.DATABASE_URL?.includes("sslmode=disable") ? false : undefined,
+});
+
 // ── Trust the first upstream proxy (nginx on VPS, Replit proxy in dev) ───────
 // Required so req.secure reflects the user-facing protocol (HTTPS), not the
 // internal HTTP connection between nginx and Node.
@@ -52,23 +69,25 @@ app.set("trust proxy", 1);
 
 app.use(session({
   store: new PgStore({
-    conString: process.env.DATABASE_URL,
+    pool: sessionPool,              // persistent pool — survives PM2 reloads
     tableName: "sessions",
     createTableIfMissing: true,
+    ttl: SESSION_MAX_AGE_SEC,       // explicit 30-day TTL in the DB row
+    pruneSessionInterval: 60 * 60,  // clean up expired rows every hour
   }),
   secret: process.env.SESSION_SECRET || "manpower-agency-secret-key-change-in-production",
   resave: false,
   saveUninitialized: false,
+  rolling: true,   // reset the 30-day TTL on every request — activity keeps users logged in
   cookie: {
-    // secure: true  — both VPS (HTTPS) and Replit (HTTPS) are always HTTPS.
-    // Explicit true avoids relying on nginx sending X-Forwarded-Proto correctly.
+    // secure: true — both VPS (HTTPS) and Replit (HTTPS) serve over HTTPS.
+    // Explicit avoids relying on nginx to forward X-Forwarded-Proto correctly.
     secure: true,
     httpOnly: true,
-    // sameSite "none" + secure allows the cookie to travel on any request
-    // (same-origin or cross-origin). Required for the Replit dev proxy and also
-    // the safest choice for VPS where nginx topology can affect same-site logic.
+    // sameSite "none" + secure: works cross-origin (Replit dev proxy) and
+    // same-origin (production VPS). Most permissive valid combination for HTTPS.
     sameSite: "none",
-    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    maxAge: SESSION_MAX_AGE_MS,     // 30 days in the browser cookie
   },
 }));
 
