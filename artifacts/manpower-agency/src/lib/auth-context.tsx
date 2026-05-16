@@ -25,7 +25,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { data: user, isLoading, error } = useGetMe({
     query: {
       queryKey: getGetMeQueryKey(),
-      retry: false,
+      // Retry once before treating a failure as definitive — covers transient
+      // network blips, PM2 restarts, and nginx upstream momentary unavailability.
+      retry: 1,
+      retryDelay: 500,
       staleTime: 1000 * 30,
       refetchInterval: 1000 * 60,
       refetchOnWindowFocus: true,
@@ -52,13 +55,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logoutMutation.mutate();
   };
 
-  const actualUser = error ? null : (user || null);
-
-  // ── Route-change: re-verify auth status on every navigation ─────────────
-  useEffect(() => {
-    if (!location) return;
-    queryClient.invalidateQueries({ queryKey: [AUTH_QUERY_KEY] });
-  }, [location]);
+  // Only treat the user as logged out when the server explicitly says 401
+  // (session expired / never existed). Transient errors (network, 500, etc.)
+  // must NOT clear the session — React Query v5 preserves cached `data` even
+  // when `error` is set on a background refetch, so we use the cached user.
+  const is401 = error != null && (error as any)?.status === 401;
+  const actualUser = is401 ? null : (user ?? null);
 
   // ── Global status gate: force logout if status becomes restricted ────────
   useEffect(() => {
