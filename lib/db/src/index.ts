@@ -25,29 +25,13 @@ export function detectDialect(url?: string): DbDialect {
 export const dialect: DbDialect = detectDialect(process.env.DATABASE_URL);
 
 // ── SSL detection ─────────────────────────────────────────────────────────────
-// SSL is needed for managed cloud databases (Neon, Supabase, RDS) but NOT
-// for a local PostgreSQL installation on the same VPS.
-// Detection order:
-//   1. DB_SSL=true  env var → force SSL on
-//   2. DB_SSL=false env var → force SSL off
-//   3. URL contains sslmode=require or sslmode=verify-* → SSL on
-//   4. URL contains sslmode=disable → SSL off
-//   5. URL hostname ends with .neon.tech / .supabase.co / .amazonaws.com → SSL on
-//   6. Everything else (localhost, 127.0.0.1, VPS local install) → no SSL
 function needsSsl(url?: string): boolean {
   if (!url) return false;
-
-  // Explicit env override always wins
   if (process.env.DB_SSL === "true")  return true;
   if (process.env.DB_SSL === "false") return false;
-
   const lower = url.toLowerCase();
-
-  // Explicit sslmode in URL
   if (/[?&]sslmode=(require|verify-ca|verify-full)/.test(lower)) return true;
   if (/[?&]sslmode=disable/.test(lower)) return false;
-
-  // Well-known cloud providers that always require SSL
   try {
     const host = new URL(url).hostname.toLowerCase();
     if (host.endsWith(".neon.tech"))      return true;
@@ -55,8 +39,7 @@ function needsSsl(url?: string): boolean {
     if (host.endsWith(".amazonaws.com"))  return true;
     if (host.endsWith(".azure.com"))      return true;
   } catch {}
-
-  return false; // local VPS PostgreSQL — no SSL needed
+  return false;
 }
 
 const sslConfig = needsSsl(process.env.DATABASE_URL)
@@ -75,7 +58,6 @@ export * from "./schema";
 
 // ── Dialect-aware type helpers ────────────────────────────────────────────────
 
-/** NUMERIC(10,2) for PostgreSQL / DECIMAL(10,2) for MySQL — identical precision */
 function decimalType(): string {
   return dialect === "mysql" ? "DECIMAL(10,2)" : "NUMERIC(10,2)";
 }
@@ -86,20 +68,8 @@ function decimalType(): string {
  * ensureTables()
  *
  * Runs on EVERY server start — development and production alike.
- * Must be awaited before app.listen() so the server never accepts requests
- * against a stale schema.
- *
- * What it does:
- *  1. Verifies the DB connection ("DB connected")
- *  2. Creates helper tables that may be missing on a fresh deployment
- *  3. Reads current events columns once from information_schema
- *  4. For each expected column:
- *       - already present → logs "Column already exists: <col>"
- *       - missing         → runs ALTER TABLE, logs "Column added: <col>"
- *  5. Logs a final pass/fail summary
- *
- * Idempotent: safe to run any number of times; never drops or modifies
- * existing columns.
+ * Idempotent: uses IF NOT EXISTS everywhere — safe to run any number of times.
+ * Never drops or modifies existing columns or tables.
  */
 export async function ensureTables(): Promise<void> {
   if (!process.env.DATABASE_URL) {
@@ -107,21 +77,76 @@ export async function ensureTables(): Promise<void> {
     return;
   }
 
-  // ── 1. Connection check ───────────────────────────────────────────────────
   console.log("[db] Running schema sync…");
   try {
     await pool.query("SELECT 1");
     console.log("[db] DB connected");
   } catch (err: any) {
     console.error("[db] DB connection failed:", err?.message);
-    throw err; // let the caller decide whether to abort startup
+    throw err;
   }
 
-  // ── 2. uploaded_files table ───────────────────────────────────────────────
+  const dec = decimalType();
+
+  // Helper: ALTER TABLE … ADD COLUMN IF NOT EXISTS, swallowing "already exists"
+  async function addCol(table: string, col: string, def: string): Promise<"added" | "exists" | "failed"> {
+    try {
+      await pool.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${col} ${def}`);
+      return "added";
+    } catch (err: any) {
+      // MySQL 5.7 doesn't support IF NOT EXISTS — ER_DUP_FIELDNAME means ok
+      if (err?.code === "ER_DUP_FIELDNAME" || err?.message?.includes("Duplicate column name")) {
+        return "exists";
+      }
+      console.error(`[db] Failed to add ${table}.${col}:`, err?.message);
+      return "failed";
+    }
+  }
+
+  // Helper: read all column names for a table in one round-trip
+  async function existingCols(table: string): Promise<Set<string>> {
+    try {
+      const q = dialect === "mysql"
+        ? `SELECT column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = '${table}'`
+        : `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '${table}'`;
+      const { rows } = await pool.query<{ column_name: string }>(q);
+      return new Set(rows.map(r => r.column_name));
+    } catch {
+      return new Set();
+    }
+  }
+
+  let added = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  async function syncTable(
+    table: string,
+    cols: Array<{ col: string; def: string }>,
+  ): Promise<void> {
+    const existing = await existingCols(table);
+    for (const { col, def } of cols) {
+      if (existing.has(col)) {
+        console.log(`[db] Column already exists: ${table}.${col}`);
+        skipped++;
+        continue;
+      }
+      const result = await addCol(table, col, def);
+      if (result === "added") {
+        console.log(`[db] Column added: ${table}.${col}`);
+        added++;
+      } else if (result === "exists") {
+        console.log(`[db] Column already exists: ${table}.${col}`);
+        skipped++;
+      } else {
+        failed++;
+      }
+    }
+  }
+
+  // ── uploaded_files table ──────────────────────────────────────────────────
   try {
-    const idCol = dialect === "mysql"
-      ? "id INT AUTO_INCREMENT PRIMARY KEY"
-      : "id SERIAL PRIMARY KEY";
+    const idCol = dialect === "mysql" ? "id INT AUTO_INCREMENT PRIMARY KEY" : "id SERIAL PRIMARY KEY";
     await pool.query(`
       CREATE TABLE IF NOT EXISTS uploaded_files (
         ${idCol},
@@ -135,102 +160,166 @@ export async function ensureTables(): Promise<void> {
     console.error("[db] Failed to ensure uploaded_files table:", err?.message);
   }
 
-  // ── 3. Read existing events columns in one round-trip ────────────────────
-  const dec = decimalType();
-
-  /** All columns the events table must have, with their SQL type. */
-  const required: Array<{ col: string; def: string }> = [
-    { col: "pay_female",              def: dec },
-    { col: "pay_male",                def: dec },
-    { col: "pay_fresher",             def: dec },
-    { col: "pay_female_max",          def: dec },
-    { col: "pay_male_max",            def: dec },
-    { col: "role_configs",            def: "TEXT" },
-    { col: "city",                    def: "TEXT" },
-    { col: "travel_allowance",        def: "TEXT NOT NULL DEFAULT 'not_included'" },
-    { col: "meals_provided",          def: "TEXT" },
-    { col: "referral_reward",         def: dec },
-    { col: "referral_message",        def: "TEXT" },
-    { col: "latitude",                def: "TEXT" },
-    { col: "longitude",               def: "TEXT" },
-    { col: "expected_check_in",       def: "TEXT" },
-    { col: "expected_check_out",      def: "TEXT" },
-    { col: "late_threshold_minutes",  def: "INTEGER NOT NULL DEFAULT 15" },
-    { col: "break_window_start",      def: "TEXT" },
-    { col: "break_window_end",        def: "TEXT" },
-    { col: "allowed_break_minutes",   def: "INTEGER" },
-    { col: "is_locked",               def: "BOOLEAN NOT NULL DEFAULT false" },
-    { col: "locked_reason",           def: "TEXT" },
-    { col: "locked_at",               def: "TIMESTAMP" },
-  ];
-
-  // Fetch existing columns once (avoids N round-trips)
-  let existing: Set<string> = new Set();
+  // ── attendance_breaks table ───────────────────────────────────────────────
   try {
-    const colList = required.map(r => `'${r.col}'`).join(", ");
-    const query = dialect === "mysql"
-      ? `SELECT column_name FROM information_schema.columns
-         WHERE table_schema = DATABASE() AND table_name = 'events'
-           AND column_name IN (${colList})`
-      : `SELECT column_name FROM information_schema.columns
-         WHERE table_schema = 'public' AND table_name = 'events'
-           AND column_name IN (${colList})`;
-
-    const { rows } = await pool.query<{ column_name: string }>(query);
-    existing = new Set(rows.map(r => r.column_name));
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS attendance_breaks (
+        id           SERIAL PRIMARY KEY,
+        claim_id     INTEGER NOT NULL REFERENCES shift_claims(id),
+        start_at     TIMESTAMP NOT NULL,
+        end_at       TIMESTAMP,
+        duration_minutes INTEGER,
+        is_outside_window BOOLEAN NOT NULL DEFAULT false,
+        lat          TEXT,
+        lng          TEXT,
+        photo_url    TEXT,
+        created_at   TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    console.log("[db] Table ready: attendance_breaks");
   } catch (err: any) {
-    // If events table doesn't exist yet drizzle-kit will create it;
-    // we can't check columns — skip per-column logging and fall through.
-    console.warn("[db] Could not read existing events columns:", err?.message);
+    console.error("[db] Failed to ensure attendance_breaks table:", err?.message);
   }
 
-  // ── 4. Apply missing columns ──────────────────────────────────────────────
-  const added:  string[] = [];
-  const skipped: string[] = [];
-  const failed:  string[] = [];
+  // ── events columns ────────────────────────────────────────────────────────
+  await syncTable("events", [
+    { col: "pay_female",             def: dec },
+    { col: "pay_male",               def: dec },
+    { col: "pay_fresher",            def: dec },
+    { col: "pay_female_max",         def: dec },
+    { col: "pay_male_max",           def: dec },
+    { col: "role_configs",           def: "TEXT" },
+    { col: "city",                   def: "TEXT" },
+    { col: "travel_allowance",       def: "TEXT NOT NULL DEFAULT 'not_included'" },
+    { col: "meals_provided",         def: "TEXT" },
+    { col: "referral_reward",        def: dec },
+    { col: "referral_message",       def: "TEXT" },
+    { col: "latitude",               def: "TEXT" },
+    { col: "longitude",              def: "TEXT" },
+    { col: "expected_check_in",      def: "TEXT" },
+    { col: "expected_check_out",     def: "TEXT" },
+    { col: "late_threshold_minutes", def: "INTEGER NOT NULL DEFAULT 15" },
+    { col: "break_window_start",     def: "TEXT" },
+    { col: "break_window_end",       def: "TEXT" },
+    { col: "allowed_break_minutes",  def: "INTEGER" },
+    { col: "is_locked",              def: "BOOLEAN NOT NULL DEFAULT false" },
+    { col: "locked_reason",          def: "TEXT" },
+    { col: "locked_at",              def: "TIMESTAMP" },
+  ]);
 
-  for (const { col, def } of required) {
-    if (existing.has(col)) {
-      console.log(`[db] Column already exists: ${col}`);
-      skipped.push(col);
-      continue;
-    }
+  // ── crew_profiles columns ─────────────────────────────────────────────────
+  await syncTable("crew_profiles", [
+    { col: "wallet_balance",            def: `${dec} NOT NULL DEFAULT 0` },
+    { col: "withdrawal_count",          def: "INTEGER NOT NULL DEFAULT 0" },
+    { col: "last_withdrawn_at",         def: "TIMESTAMP" },
+    { col: "successful_referrals",      def: "INTEGER NOT NULL DEFAULT 0" },
+    { col: "temp_approved",             def: "BOOLEAN NOT NULL DEFAULT false" },
+    { col: "heard_about_us",            def: "TEXT" },
+    { col: "portfolio_photos",          def: "TEXT" },
+    { col: "photo_quality",             def: "TEXT" },
+    { col: "intro_video_url",           def: "TEXT" },
+    { col: "intro_video_quality",       def: "TEXT" },
+    { col: "has_pending_changes",       def: "BOOLEAN NOT NULL DEFAULT false" },
+    { col: "pending_changes_status",    def: "TEXT" },
+    { col: "admin_message",             def: "TEXT" },
+    { col: "id_type",                   def: "TEXT" },
+    { col: "college_id_url",            def: "TEXT" },
+    { col: "pending_pay_holder_name",   def: "TEXT" },
+    { col: "pending_pay_bank_name",     def: "TEXT" },
+    { col: "pending_pay_branch_name",   def: "TEXT" },
+    { col: "pending_pay_account_number",def: "TEXT" },
+    { col: "pending_pay_ifsc_code",     def: "TEXT" },
+    { col: "pending_pay_upi_id",        def: "TEXT" },
+    { col: "pending_pan_number",        def: "TEXT" },
+    { col: "pending_pan_card_url",      def: "TEXT" },
+    { col: "pending_bank_account",      def: "TEXT" },
+    { col: "pending_name",              def: "TEXT" },
+    { col: "pending_city",              def: "TEXT" },
+    { col: "pending_languages",         def: "TEXT" },
+    { col: "pending_experience",        def: "TEXT" },
+    { col: "pending_category",          def: "TEXT" },
+  ]);
 
-    // Column is missing — add it
-    const ifNotExists = dialect === "mysql" ? "" : "IF NOT EXISTS ";
-    const sql = `ALTER TABLE events ADD COLUMN ${ifNotExists}${col} ${def}`;
-    try {
-      await pool.query(sql);
-      console.log(`[db] Column added: ${col}`);
-      added.push(col);
-    } catch (err: any) {
-      // MySQL 5.7: no native IF NOT EXISTS — error 1060 means column already exists
-      const alreadyExists =
-        err?.code === "ER_DUP_FIELDNAME" ||
-        (typeof err?.message === "string" && err.message.includes("Duplicate column name"));
+  // ── shifts columns ────────────────────────────────────────────────────────
+  await syncTable("shifts", [
+    { col: "applications_open",     def: "BOOLEAN NOT NULL DEFAULT true" },
+    { col: "payment_type",          def: "TEXT" },
+    { col: "dress_code",            def: "TEXT" },
+    { col: "grooming_instructions", def: "TEXT" },
+  ]);
 
-      if (alreadyExists) {
-        console.log(`[db] Column already exists: ${col}`);
-        skipped.push(col);
-      } else {
-        console.error(`[db] Column FAILED: ${col} —`, err?.message);
-        failed.push(col);
+  // ── shift_claims columns ──────────────────────────────────────────────────
+  await syncTable("shift_claims", [
+    { col: "check_out_at",          def: "TIMESTAMP" },
+    { col: "check_out_status",      def: "TEXT" },
+    { col: "break_start_at",        def: "TIMESTAMP" },
+    { col: "break_end_at",          def: "TIMESTAMP" },
+    { col: "total_break_minutes",   def: "INTEGER NOT NULL DEFAULT 0" },
+    { col: "break_exceeded",        def: "BOOLEAN NOT NULL DEFAULT false" },
+    { col: "check_out_lat",         def: "TEXT" },
+    { col: "check_out_lng",         def: "TEXT" },
+    { col: "check_out_photo_url",   def: "TEXT" },
+    { col: "attendance_date",       def: "TEXT" },
+    { col: "attendance_approved",   def: "BOOLEAN" },
+    { col: "approved_pay",          def: dec },
+    { col: "is_override",           def: "BOOLEAN NOT NULL DEFAULT false" },
+    { col: "override_reason",       def: "TEXT" },
+    { col: "distance_from_event",   def: dec },
+    { col: "applied_roles",         def: "TEXT" },
+    { col: "assigned_role",         def: "TEXT" },
+    { col: "withdrawal_reason",     def: "TEXT" },
+  ]);
+
+  // ── referrals columns ─────────────────────────────────────────────────────
+  await syncTable("referrals", [
+    { col: "referred_phone", def: "TEXT" },
+    { col: "reward_paid",    def: "TEXT NOT NULL DEFAULT 'no'" },
+  ]);
+
+  // ── enum value additions (PostgreSQL only) ────────────────────────────────
+  if (dialect === "postgres") {
+    const enumAdditions: Array<{ enumName: string; value: string }> = [
+      { enumName: "user_status",     value: "resubmitted" },
+      { enumName: "user_status",     value: "removed" },
+      { enumName: "event_status",    value: "draft" },
+      { enumName: "event_status",    value: "archived" },
+      { enumName: "claim_status",    value: "revoked" },
+      { enumName: "referral_status", value: "selected" },
+      { enumName: "referral_status", value: "confirmed" },
+      { enumName: "referral_status", value: "pending_approval" },
+      { enumName: "referral_status", value: "paid" },
+    ];
+
+    for (const { enumName, value } of enumAdditions) {
+      try {
+        await pool.query(`
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_enum e
+              JOIN pg_type t ON e.enumtypid = t.oid
+              WHERE t.typname = '${enumName}' AND e.enumlabel = '${value}'
+            ) THEN
+              ALTER TYPE ${enumName} ADD VALUE '${value}';
+            END IF;
+          END$$;
+        `);
+      } catch (err: any) {
+        console.warn(`[db] Could not add enum value ${enumName}.${value}:`, err?.message);
       }
     }
+    console.log("[db] Enum values synced");
   }
 
-  // ── 5. Summary ────────────────────────────────────────────────────────────
-  if (failed.length === 0) {
+  if (failed === 0) {
     console.log(
       `[db] Schema sync complete — ` +
-      `${added.length} added, ${skipped.length} already existed` +
-      (added.length ? ` (added: ${added.join(", ")})` : ""),
+      `${added} added, ${skipped} already existed`,
     );
   } else {
     console.error(
       `[db] Schema sync finished with errors — ` +
-      `${added.length} added, ${skipped.length} skipped, ` +
-      `FAILED: ${failed.join(", ")}`,
+      `${added} added, ${skipped} skipped, ${failed} FAILED`,
     );
   }
 }
