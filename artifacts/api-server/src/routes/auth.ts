@@ -116,6 +116,44 @@ router.get("/auth/check-exists", async (req, res) => {
   }
 });
 
+// ── Check if a phone number is already registered ────────────────────────────
+// Used by the registration flow before sending OTP to avoid wasting SMS quota
+// on numbers that already have an account.
+router.post("/auth/check-phone", async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ error: "Phone required" });
+
+    const stripped = String(phone).replace(/\D/g, "");
+    let bare = stripped;
+    if (bare.startsWith("91") && bare.length === 12) bare = bare.slice(2);
+    bare = bare.slice(-10);
+
+    console.log("[phone-check] Checking phone:", bare);
+
+    if (bare.length !== 10) return res.json({ exists: false });
+
+    const [profile] = await db
+      .select({ id: crewProfilesTable.id, status: usersTable.status })
+      .from(crewProfilesTable)
+      .innerJoin(usersTable, eq(crewProfilesTable.userId, usersTable.id))
+      .where(or(
+        eq(crewProfilesTable.phone, bare),
+        eq(crewProfilesTable.phone, `+91${bare}`),
+      ));
+
+    if (profile && profile.status !== "removed") {
+      console.log("[existing-user] Phone found — status:", profile.status);
+      return res.json({ exists: true, status: profile.status });
+    }
+
+    return res.json({ exists: false });
+  } catch (err) {
+    console.error("[phone-check] Error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.get("/auth/me", (req, res) => {
   const session = (req as any).session;
   if (!session?.userId) {

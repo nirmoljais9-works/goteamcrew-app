@@ -294,6 +294,11 @@ export default function Register() {
   const [otpResending,    setOtpResending]    = useState(false);
   const [otpSendCooldown, setOtpSendCooldown] = useState(0);
   const otpInputRef        = useRef<HTMLInputElement | null>(null);
+  // Tracks whether user has attempted verification — MSG91's failure callback
+  // fires for BOTH "OTP send failure" (immediately) and "OTP verify failure"
+  // (after user submits). This ref lets us distinguish the two cases.
+  const inVerifyPhaseRef   = useRef(false);
+  const [phoneCheckLoading, setPhoneCheckLoading] = useState(false);
   const [stepError,        setStepError]        = useState("");
   const [showFieldErrors,  setShowFieldErrors]  = useState(false);
   const [emailError,       setEmailError]       = useState("");
@@ -1048,15 +1053,58 @@ export default function Register() {
   };
 
   // ── MSG91 OTP Verification ────────────────────────────────────────────────
-  const triggerOTP = () => {
+  const triggerOTP = async () => {
     if (!phoneDigits || phoneDigits.length !== 10 || phoneError) return;
-    if (otpLoading || otpSendCooldown > 0) return;
-    setOtpLoading(true);
-    const identifier = `91${phoneDigits}`;
-    console.log("[OTP] triggerOTP called — identifier:", identifier, "| domain:", window.location.hostname);
+    if (otpLoading || otpSendCooldown > 0 || phoneCheckLoading) return;
 
+    const BASE_URL_CLEAN = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+    const identifier = `91${phoneDigits}`;
+
+    // ── Step 1: Check if phone is already registered ────────────────────────
+    // If the debounced check already knows it exists, block immediately.
+    if (existsStatus === "exists") {
+      console.log("[existing-user] Phone already registered — blocking OTP send");
+      return;
+    }
+
+    // If status is unknown or still checking, do a synchronous check now.
+    if (existsStatus !== "clear") {
+      setPhoneCheckLoading(true);
+      try {
+        console.log("[phone-check] Synchronous phone check for:", phoneDigits);
+        const res = await fetch(`${BASE_URL_CLEAN}/api/auth/check-phone`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: phoneDigits }),
+          cache: "no-store",
+        });
+        const data = await res.json();
+        if (data.exists) {
+          console.log("[existing-user] Phone already registered (sync check) — status:", data.status);
+          setExistsStatus("exists");
+          setExistingUserStatus(data.status ?? "existing");
+          setPhoneCheckLoading(false);
+          return; // Existing-number banner will appear; do NOT open OTP modal
+        }
+        console.log("[phone-check] Phone is clear, proceeding to OTP");
+        setExistsStatus("clear");
+      } catch (err) {
+        // Network failure on check — proceed cautiously (backend will reject duplicates at registration)
+        console.warn("[phone-check] Check request failed, proceeding anyway:", err);
+      }
+      setPhoneCheckLoading(false);
+    }
+
+    // ── Step 2: Reset all OTP state before sending ──────────────────────────
+    inVerifyPhaseRef.current = false; // Not in verify phase yet
+    setOtpError("");
+    setOtpValue("");
+    setOtpVerifying(false);
+    setOtpLoading(true);
+
+    // ── Step 3: Build the send function ────────────────────────────────────
     const doSend = () => {
-      console.log("[OTP] Calling window.initSendOTP with widgetId: 36646f674475303238343136");
+      console.log("[otp-send] Calling initSendOTP — identifier:", identifier);
       // @ts-ignore
       window.initSendOTP({
         widgetId: "36646f674475303238343136",
@@ -1064,25 +1112,46 @@ export default function Register() {
         identifier,
         exposeMethods: true,
         success: (_data: unknown) => {
-          console.log("[OTP] Verification SUCCESS", _data);
+          // MSG91 fires this ONLY after successful OTP verification
+          console.log("[otp-verify] MSG91 success callback — phone verified");
           setPhoneVerified(true);
           closeOtpModal();
           setOtpLoading(false);
         },
         failure: (_err: unknown) => {
-          console.error("[OTP] Verification FAILED", _err);
-          setOtpError("Verification failed. Please try again.");
-          setOtpVerifying(false);
-          setOtpLoading(false);
+          // MSG91 fires this for TWO cases:
+          //   1. OTP SEND failed  → inVerifyPhaseRef.current === false (fires async, after modal opens)
+          //   2. OTP VERIFY failed → inVerifyPhaseRef.current === true
+          if (!inVerifyPhaseRef.current) {
+            console.error("[otp-send] OTP send failed (failure before verify attempt):", _err);
+            closeOtpModal();
+            setOtpLoading(false);
+            // Reset cooldown so user can retry immediately
+            setOtpSendCooldown(0);
+            if (otpSendCooldownRef.current) clearInterval(otpSendCooldownRef.current);
+            toast({
+              variant: "destructive",
+              title: "OTP could not be sent",
+              description: "Please check your number and try again.",
+            });
+          } else {
+            console.error("[otp-verify] OTP verification failed:", _err);
+            setOtpVerifying(false);
+            setOtpError("Incorrect OTP. Please try again.");
+            setOtpValue("");
+            setTimeout(() => otpInputRef.current?.focus(), 50);
+          }
         },
       });
 
-      // OTP is now in flight — open our custom entry modal immediately
+      // Open modal immediately after initiating — reset error so modal is clean
       setOtpLoading(false);
       startSendCooldown(30);
-      openOtpModal();
+      openOtpModal(); // openOtpModal already calls setOtpError("") internally
+      console.log("[otp-send] OTP request initiated, modal opened");
     };
 
+    // ── Step 4: Load MSG91 SDK (or reuse if already loaded) ────────────────
     const urls = [
       "https://verify.msg91.com/otp-provider.js",
       "https://verify.phone91.com/otp-provider.js",
@@ -1090,12 +1159,12 @@ export default function Register() {
     let urlIndex = 0;
     // @ts-ignore
     if (typeof window.initSendOTP === "function") {
-      console.log("[OTP] MSG91 SDK already loaded — calling doSend()");
+      console.log("[otp-send] MSG91 SDK already loaded");
       doSend();
     } else {
       const loadNext = () => {
         if (urlIndex >= urls.length) {
-          console.error("[OTP] All MSG91 script URLs failed to load — OTP unavailable");
+          console.error("[otp-send] All MSG91 script URLs failed to load");
           setOtpLoading(false);
           toast({ variant: "destructive", title: "OTP service unavailable", description: "Please check your connection and try again." });
           return;
@@ -1103,20 +1172,19 @@ export default function Register() {
         const script = document.createElement("script");
         script.src = urls[urlIndex];
         script.async = true;
-        console.log("[OTP] Attempting to load MSG91 SDK from:", urls[urlIndex]);
+        console.log("[otp-send] Loading MSG91 SDK from:", urls[urlIndex]);
         script.onload = () => {
-          console.log("[OTP] Script loaded from:", urls[urlIndex - 1] ?? urls[urlIndex]);
           // @ts-ignore
           if (typeof window.initSendOTP === "function") {
-            console.log("[OTP] window.initSendOTP is available — calling doSend()");
+            console.log("[otp-send] SDK loaded, calling doSend");
             doSend();
           } else {
-            console.warn("[OTP] Script loaded but window.initSendOTP not found — trying next URL");
+            console.warn("[otp-send] SDK loaded but initSendOTP not found, trying next URL");
             urlIndex++; loadNext();
           }
         };
         script.onerror = () => {
-          console.error("[OTP] Failed to load script from:", urls[urlIndex]);
+          console.error("[otp-send] Script load failed:", urls[urlIndex]);
           urlIndex++; loadNext();
         };
         document.head.appendChild(script);
@@ -1132,6 +1200,7 @@ export default function Register() {
     setOtpValue(val);
     setOtpError("");
     if (val.length === 4) {
+      inVerifyPhaseRef.current = true; // Auto-submit counts as verify attempt
       submitOtp(val);
     }
   };
@@ -1139,14 +1208,22 @@ export default function Register() {
   const submitOtp = (otp?: string) => {
     const code = otp ?? otpValue;
     if (code.length !== 4) { setOtpError("Please enter the 4-digit OTP"); return; }
+    inVerifyPhaseRef.current = true; // Mark as verify phase — MSG91 failure = wrong OTP, not send failure
     setOtpVerifying(true);
     setOtpError("");
+    console.log("[otp-verify] Submitting OTP for verification");
     // @ts-ignore
     if (typeof window.verifyOtp === "function") {
       // @ts-ignore
       window.verifyOtp(code,
-        (_data: unknown) => { setPhoneVerified(true); closeOtpModal(); setOtpLoading(false); },
+        (_data: unknown) => {
+          console.log("[otp-verify] Verification success");
+          setPhoneVerified(true);
+          closeOtpModal();
+          setOtpLoading(false);
+        },
         (_err: unknown) => {
+          console.error("[otp-verify] Verification failed:", _err);
           setOtpVerifying(false);
           setOtpError("Incorrect OTP. Please try again.");
           setOtpValue("");
@@ -2042,36 +2119,59 @@ export default function Register() {
 
                           {/* Verify button / verified badge — below the input */}
                           {!phoneVerified && (
-                            <button
-                              type="button"
-                              onClick={triggerOTP}
-                              disabled={!phoneDigits || phoneDigits.length !== 10 || !!phoneError || otpLoading || otpSendCooldown > 0 || formDisabled}
-                              className="w-full h-11 rounded-md text-sm font-medium transition-all border
-                                bg-primary text-primary-foreground border-primary
-                                hover:bg-primary/90
-                                disabled:opacity-40 disabled:cursor-not-allowed
-                                flex items-center justify-center gap-2 select-none"
-                            >
-                              {otpLoading ? (
-                                <>
-                                  <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                                  </svg>
-                                  Sending OTP…
-                                </>
-                              ) : otpSendCooldown > 0 ? (
-                                <>
-                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                  Resend OTP in {otpSendCooldown}s
-                                </>
-                              ) : (
-                                <>
-                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                                  Verify with OTP
-                                </>
+                            <>
+                              {/* Already-registered inline notice — shown when sync check finds existing account */}
+                              {existsStatus === "exists" && existingUserStatus !== "blacklisted" && existingUserStatus !== "removed" && (
+                                <div className="flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-800">
+                                  <svg className="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                  <span>This number is already registered.{" "}
+                                    <a href="/login" className="font-semibold underline underline-offset-2 text-amber-900">Please login instead.</a>
+                                  </span>
+                                </div>
                               )}
-                            </button>
+                              <button
+                                type="button"
+                                onClick={triggerOTP}
+                                disabled={
+                                  !phoneDigits || phoneDigits.length !== 10 || !!phoneError ||
+                                  otpLoading || phoneCheckLoading || otpSendCooldown > 0 ||
+                                  formDisabled || existsStatus === "exists"
+                                }
+                                className="w-full h-11 rounded-md text-sm font-medium transition-all border
+                                  bg-primary text-primary-foreground border-primary
+                                  hover:bg-primary/90
+                                  disabled:opacity-40 disabled:cursor-not-allowed
+                                  flex items-center justify-center gap-2 select-none"
+                              >
+                                {phoneCheckLoading ? (
+                                  <>
+                                    <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                                    </svg>
+                                    Checking…
+                                  </>
+                                ) : otpLoading ? (
+                                  <>
+                                    <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                                    </svg>
+                                    Sending OTP…
+                                  </>
+                                ) : otpSendCooldown > 0 ? (
+                                  <>
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                    Resend OTP in {otpSendCooldown}s
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                                    Verify with OTP
+                                  </>
+                                )}
+                              </button>
+                            </>
                           )}
                         </div>
                       ) : (
