@@ -1095,14 +1095,30 @@ export default function Register() {
       setPhoneCheckLoading(false);
     }
 
-    // ── Step 2: Reset all OTP state before sending ──────────────────────────
+    // ── Step 2: Dev-mode bypass ─────────────────────────────────────────────
+    // MSG91's widget only works on whitelisted domains. On any domain other
+    // than the production domain (goteamcrew.com), skip OTP and auto-verify
+    // so the full registration flow can be tested without MSG91 config.
+    const hostname = window.location.hostname;
+    const isProdDomain = hostname === "goteamcrew.com" || hostname === "www.goteamcrew.com";
+    if (!isProdDomain) {
+      console.log("[otp-send] Dev mode: auto-verifying phone (MSG91 only runs on goteamcrew.com)");
+      setPhoneVerified(true);
+      toast({
+        title: "Dev mode — phone auto-verified",
+        description: "OTP verification is only active on goteamcrew.com.",
+      });
+      return;
+    }
+
+    // ── Step 3: Reset all OTP state before sending ──────────────────────────
     inVerifyPhaseRef.current = false; // Not in verify phase yet
     setOtpError("");
     setOtpValue("");
     setOtpVerifying(false);
     setOtpLoading(true);
 
-    // ── Step 3: Build the send function ────────────────────────────────────
+    // ── Step 4: Build the send function ────────────────────────────────────
     const doSend = () => {
       console.log("[otp-send] Calling initSendOTP — identifier:", identifier);
       // @ts-ignore
