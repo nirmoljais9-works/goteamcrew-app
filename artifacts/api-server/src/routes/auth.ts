@@ -116,7 +116,14 @@ router.get("/auth/check-exists", async (req, res) => {
   }
 });
 
-const MSG91_AUTHKEY = "508849TqFl2WeiaRJg69df3ff5P1";
+// ── MSG91 REST OTP API ────────────────────────────────────────────────────────
+// Requires MSG91_API_KEY (REST authkey from MSG91 dashboard → Settings → API)
+// Optionally MSG91_OTP_TEMPLATE_ID (DLT-registered template — required for
+// Indian numbers to pass carrier DLT filtering).
+//
+// These are different from the widget's tokenAuth — the widget token only works
+// in browser-to-MSG91 calls on whitelisted domains. The REST authkey works from
+// any server with no domain or IP restrictions.
 
 function normalizePhone(raw: string): string | null {
   const digits = String(raw).replace(/\D/g, "");
@@ -126,78 +133,106 @@ function normalizePhone(raw: string): string | null {
   return bare.length === 10 ? bare : null;
 }
 
+function getMsg91AuthKey(): string | null {
+  return process.env.MSG91_API_KEY ?? null;
+}
+
+async function msg91Get(path: string, params: Record<string, string>): Promise<any> {
+  const authkey = getMsg91AuthKey();
+  if (!authkey) throw new Error("MSG91_API_KEY not configured");
+  const qs = new URLSearchParams({ authkey, ...params }).toString();
+  const url = `https://api.msg91.com/api/v5/${path}?${qs}`;
+  const res  = await fetch(url);
+  const text = await res.text();
+  console.log(`[msg91] GET /${path} HTTP ${res.status}:`, text);
+  try { return JSON.parse(text); } catch { return { type: "error", message: text }; }
+}
+
 // ── Send OTP via MSG91 REST API ───────────────────────────────────────────────
 router.post("/auth/send-otp", async (req, res) => {
   try {
+    if (!getMsg91AuthKey()) {
+      console.error("[otp-send] MSG91_API_KEY env var not set");
+      return res.status(503).json({ error: "OTP service not configured. Please contact support." });
+    }
+
     const bare = normalizePhone(req.body.phone ?? "");
     if (!bare) return res.status(400).json({ error: "Invalid phone number" });
 
     const mobile = `91${bare}`;
     console.log("[otp-send] Sending OTP to:", mobile);
 
-    const url = `https://api.msg91.com/api/v5/otp?authkey=${MSG91_AUTHKEY}&mobile=${mobile}&otp_length=4`;
-    const msg91Res = await fetch(url);
-    const data: any = await msg91Res.json();
+    const params: Record<string, string> = { mobile, otp_length: "4" };
+    const templateId = process.env.MSG91_OTP_TEMPLATE_ID;
+    if (templateId) params.template_id = templateId;
+
+    const data = await msg91Get("otp", params);
     console.log("[otp-send] MSG91 response:", data);
 
     if (data.type === "success") {
+      const session = (req as any).session;
+      session.otpPhone = bare;
       return res.json({ success: true });
     }
     return res.status(400).json({ error: data.message || "Failed to send OTP" });
-  } catch (err) {
-    console.error("[otp-send] Error:", err);
-    res.status(500).json({ error: "Server error" });
+  } catch (err: any) {
+    console.error("[otp-send] Error:", err.message);
+    res.status(500).json({ error: err.message || "Server error" });
   }
 });
 
 // ── Verify OTP via MSG91 REST API ─────────────────────────────────────────────
 router.post("/auth/verify-otp", async (req, res) => {
   try {
+    if (!getMsg91AuthKey()) {
+      return res.status(503).json({ error: "OTP service not configured." });
+    }
+
     const bare = normalizePhone(req.body.phone ?? "");
     const otp  = String(req.body.otp ?? "").replace(/\D/g, "").slice(0, 4);
     if (!bare) return res.status(400).json({ error: "Invalid phone number" });
     if (otp.length !== 4) return res.status(400).json({ error: "OTP must be 4 digits" });
 
     const mobile = `91${bare}`;
-    console.log("[otp-verify] Verifying OTP for:", mobile);
+    console.log("[otp-verify] Verifying OTP for:", mobile, "otp:", otp);
 
-    const url = `https://api.msg91.com/api/v5/otp/verify?authkey=${MSG91_AUTHKEY}&mobile=${mobile}&otp=${otp}`;
-    const msg91Res = await fetch(url);
-    const data: any = await msg91Res.json();
+    const data = await msg91Get("otp/verify", { mobile, otp });
     console.log("[otp-verify] MSG91 response:", data);
 
     if (data.type === "success") {
-      (req as any).session.otpVerifiedPhone = bare;
+      const session = (req as any).session;
+      session.otpVerifiedPhone = bare;
+      delete session.otpPhone;
       return res.json({ success: true });
     }
     return res.status(400).json({ error: data.message || "Incorrect OTP" });
-  } catch (err) {
-    console.error("[otp-verify] Error:", err);
-    res.status(500).json({ error: "Server error" });
+  } catch (err: any) {
+    console.error("[otp-verify] Error:", err.message);
+    res.status(500).json({ error: err.message || "Server error" });
   }
 });
 
 // ── Resend OTP via MSG91 REST API ─────────────────────────────────────────────
 router.post("/auth/resend-otp", async (req, res) => {
   try {
+    if (!getMsg91AuthKey()) {
+      return res.status(503).json({ error: "OTP service not configured." });
+    }
+
     const bare = normalizePhone(req.body.phone ?? "");
     if (!bare) return res.status(400).json({ error: "Invalid phone number" });
 
     const mobile = `91${bare}`;
     console.log("[otp-send] Resending OTP to:", mobile);
 
-    const url = `https://api.msg91.com/api/v5/otp/retry?authkey=${MSG91_AUTHKEY}&mobile=${mobile}&retrytype=text`;
-    const msg91Res = await fetch(url);
-    const data: any = await msg91Res.json();
+    const data = await msg91Get("otp/retry", { mobile, retrytype: "text" });
     console.log("[otp-send] MSG91 resend response:", data);
 
-    if (data.type === "success") {
-      return res.json({ success: true });
-    }
+    if (data.type === "success") return res.json({ success: true });
     return res.status(400).json({ error: data.message || "Failed to resend OTP" });
-  } catch (err) {
-    console.error("[otp-send] Resend error:", err);
-    res.status(500).json({ error: "Server error" });
+  } catch (err: any) {
+    console.error("[otp-send] Resend error:", err.message);
+    res.status(500).json({ error: err.message || "Server error" });
   }
 });
 
