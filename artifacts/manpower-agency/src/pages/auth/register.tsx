@@ -294,10 +294,6 @@ export default function Register() {
   const [otpResending,    setOtpResending]    = useState(false);
   const [otpSendCooldown, setOtpSendCooldown] = useState(0);
   const otpInputRef        = useRef<HTMLInputElement | null>(null);
-  // Tracks whether user has attempted verification — MSG91's failure callback
-  // fires for BOTH "OTP send failure" (immediately) and "OTP verify failure"
-  // (after user submits). This ref lets us distinguish the two cases.
-  const inVerifyPhaseRef   = useRef(false);
   const [phoneCheckLoading, setPhoneCheckLoading] = useState(false);
   const [stepError,        setStepError]        = useState("");
   const [showFieldErrors,  setShowFieldErrors]  = useState(false);
@@ -1052,16 +1048,14 @@ export default function Register() {
     if (otpTimerRef.current) clearInterval(otpTimerRef.current);
   };
 
-  // ── MSG91 OTP Verification ────────────────────────────────────────────────
+  // ── OTP via backend REST API (domain-independent) ────────────────────────
   const triggerOTP = async () => {
     if (!phoneDigits || phoneDigits.length !== 10 || phoneError) return;
     if (otpLoading || otpSendCooldown > 0 || phoneCheckLoading) return;
 
     const BASE_URL_CLEAN = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
-    const identifier = `91${phoneDigits}`;
 
     // ── Step 1: Check if phone is already registered ────────────────────────
-    // If the debounced check already knows it exists, block immediately.
     if (existsStatus === "exists") {
       console.log("[existing-user] Phone already registered — blocking OTP send");
       return;
@@ -1084,128 +1078,48 @@ export default function Register() {
           setExistsStatus("exists");
           setExistingUserStatus(data.status ?? "existing");
           setPhoneCheckLoading(false);
-          return; // Existing-number banner will appear; do NOT open OTP modal
+          return;
         }
         console.log("[phone-check] Phone is clear, proceeding to OTP");
         setExistsStatus("clear");
       } catch (err) {
-        // Network failure on check — proceed cautiously (backend will reject duplicates at registration)
         console.warn("[phone-check] Check request failed, proceeding anyway:", err);
       }
       setPhoneCheckLoading(false);
     }
 
-    // ── Step 2: Dev-mode bypass ─────────────────────────────────────────────
-    // MSG91's widget only works on whitelisted domains. On any domain other
-    // than the production domain (goteamcrew.com), skip OTP and auto-verify
-    // so the full registration flow can be tested without MSG91 config.
-    const hostname = window.location.hostname;
-    const isProdDomain = hostname === "goteamcrew.com" || hostname === "www.goteamcrew.com";
-    if (!isProdDomain) {
-      console.log("[otp-send] Dev mode: auto-verifying phone (MSG91 only runs on goteamcrew.com)");
-      setPhoneVerified(true);
-      toast({
-        title: "Dev mode — phone auto-verified",
-        description: "OTP verification is only active on goteamcrew.com.",
-      });
-      return;
-    }
-
-    // ── Step 3: Reset all OTP state before sending ──────────────────────────
-    inVerifyPhaseRef.current = false; // Not in verify phase yet
+    // ── Step 2: Reset OTP state and call backend to send OTP ────────────────
     setOtpError("");
     setOtpValue("");
     setOtpVerifying(false);
     setOtpLoading(true);
 
-    // ── Step 4: Build the send function ────────────────────────────────────
-    const doSend = () => {
-      console.log("[otp-send] Calling initSendOTP — identifier:", identifier);
-      // @ts-ignore
-      window.initSendOTP({
-        widgetId: "36646f674475303238343136",
-        tokenAuth: "508849TqFl2WeiaRJg69df3ff5P1",
-        identifier,
-        exposeMethods: true,
-        success: (_data: unknown) => {
-          // MSG91 fires this ONLY after successful OTP verification
-          console.log("[otp-verify] MSG91 success callback — phone verified");
-          setPhoneVerified(true);
-          closeOtpModal();
-          setOtpLoading(false);
-        },
-        failure: (_err: unknown) => {
-          // MSG91 fires this for TWO cases:
-          //   1. OTP SEND failed  → inVerifyPhaseRef.current === false (fires async, after modal opens)
-          //   2. OTP VERIFY failed → inVerifyPhaseRef.current === true
-          if (!inVerifyPhaseRef.current) {
-            console.error("[otp-send] OTP send failed (failure before verify attempt):", _err);
-            closeOtpModal();
-            setOtpLoading(false);
-            // Reset cooldown so user can retry immediately
-            setOtpSendCooldown(0);
-            if (otpSendCooldownRef.current) clearInterval(otpSendCooldownRef.current);
-            toast({
-              variant: "destructive",
-              title: "OTP could not be sent",
-              description: "Please check your number and try again.",
-            });
-          } else {
-            console.error("[otp-verify] OTP verification failed:", _err);
-            setOtpVerifying(false);
-            setOtpError("Incorrect OTP. Please try again.");
-            setOtpValue("");
-            setTimeout(() => otpInputRef.current?.focus(), 50);
-          }
-        },
+    try {
+      console.log("[otp-send] Requesting OTP for:", phoneDigits);
+      const res = await fetch(`${BASE_URL_CLEAN}/api/auth/send-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phoneDigits }),
       });
-
-      // Open modal immediately after initiating — reset error so modal is clean
+      const data = await res.json();
+      if (data.success) {
+        console.log("[otp-send] OTP sent successfully");
+        setOtpLoading(false);
+        startSendCooldown(30);
+        openOtpModal();
+      } else {
+        throw new Error(data.error || "Failed to send OTP");
+      }
+    } catch (err) {
+      console.error("[otp-send] Failed:", err);
       setOtpLoading(false);
-      startSendCooldown(30);
-      openOtpModal(); // openOtpModal already calls setOtpError("") internally
-      console.log("[otp-send] OTP request initiated, modal opened");
-    };
-
-    // ── Step 4: Load MSG91 SDK (or reuse if already loaded) ────────────────
-    const urls = [
-      "https://verify.msg91.com/otp-provider.js",
-      "https://verify.phone91.com/otp-provider.js",
-    ];
-    let urlIndex = 0;
-    // @ts-ignore
-    if (typeof window.initSendOTP === "function") {
-      console.log("[otp-send] MSG91 SDK already loaded");
-      doSend();
-    } else {
-      const loadNext = () => {
-        if (urlIndex >= urls.length) {
-          console.error("[otp-send] All MSG91 script URLs failed to load");
-          setOtpLoading(false);
-          toast({ variant: "destructive", title: "OTP service unavailable", description: "Please check your connection and try again." });
-          return;
-        }
-        const script = document.createElement("script");
-        script.src = urls[urlIndex];
-        script.async = true;
-        console.log("[otp-send] Loading MSG91 SDK from:", urls[urlIndex]);
-        script.onload = () => {
-          // @ts-ignore
-          if (typeof window.initSendOTP === "function") {
-            console.log("[otp-send] SDK loaded, calling doSend");
-            doSend();
-          } else {
-            console.warn("[otp-send] SDK loaded but initSendOTP not found, trying next URL");
-            urlIndex++; loadNext();
-          }
-        };
-        script.onerror = () => {
-          console.error("[otp-send] Script load failed:", urls[urlIndex]);
-          urlIndex++; loadNext();
-        };
-        document.head.appendChild(script);
-      };
-      loadNext();
+      setOtpSendCooldown(0);
+      if (otpSendCooldownRef.current) clearInterval(otpSendCooldownRef.current);
+      toast({
+        variant: "destructive",
+        title: "OTP could not be sent",
+        description: "Please check your number and try again.",
+      });
     }
   };
 
@@ -1215,65 +1129,63 @@ export default function Register() {
     const val = e.target.value.replace(/\D/g, "").slice(0, 4);
     setOtpValue(val);
     setOtpError("");
-    if (val.length === 4) {
-      inVerifyPhaseRef.current = true; // Auto-submit counts as verify attempt
-      submitOtp(val);
-    }
+    if (val.length === 4) submitOtp(val);
   };
 
-  const submitOtp = (otp?: string) => {
+  const submitOtp = async (otp?: string) => {
     const code = otp ?? otpValue;
     if (code.length !== 4) { setOtpError("Please enter the 4-digit OTP"); return; }
-    inVerifyPhaseRef.current = true; // Mark as verify phase — MSG91 failure = wrong OTP, not send failure
     setOtpVerifying(true);
     setOtpError("");
+    const BASE_URL_CLEAN = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
     console.log("[otp-verify] Submitting OTP for verification");
-    // @ts-ignore
-    if (typeof window.verifyOtp === "function") {
-      // @ts-ignore
-      window.verifyOtp(code,
-        (_data: unknown) => {
-          console.log("[otp-verify] Verification success");
-          setPhoneVerified(true);
-          closeOtpModal();
-          setOtpLoading(false);
-        },
-        (_err: unknown) => {
-          console.error("[otp-verify] Verification failed:", _err);
-          setOtpVerifying(false);
-          setOtpError("Incorrect OTP. Please try again.");
-          setOtpValue("");
-          setTimeout(() => otpInputRef.current?.focus(), 50);
-        }
-      );
-    } else {
+    try {
+      const res = await fetch(`${BASE_URL_CLEAN}/api/auth/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phoneDigits, otp: code }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        console.log("[otp-verify] Verification success");
+        setPhoneVerified(true);
+        closeOtpModal();
+      } else {
+        throw new Error(data.error || "Incorrect OTP");
+      }
+    } catch (err) {
+      console.error("[otp-verify] Verification failed:", err);
       setOtpVerifying(false);
-      setOtpError("Verification service error. Please retry.");
+      setOtpError("Incorrect OTP. Please try again.");
+      setOtpValue("");
+      setTimeout(() => otpInputRef.current?.focus(), 50);
     }
   };
 
-  const resendOtp = () => {
+  const resendOtp = async () => {
     if (otpTimer > 0 || otpResending) return;
     setOtpResending(true);
     setOtpValue("");
     setOtpError("");
-    const identifier = `91${phoneDigits}`;
-    // @ts-ignore
-    if (typeof window.retryOtp === "function") {
-      // @ts-ignore
-      window.retryOtp("text",
-        () => { setOtpResending(false); startOtpTimer(30); setTimeout(() => otpInputRef.current?.focus(), 50); },
-        () => { setOtpResending(false); setOtpError("Failed to resend OTP. Please try again."); }
-      );
-    // @ts-ignore
-    } else if (typeof window.sendOtp === "function") {
-      // @ts-ignore
-      window.sendOtp(identifier, true,
-        () => { setOtpResending(false); startOtpTimer(30); setTimeout(() => otpInputRef.current?.focus(), 50); },
-        () => { setOtpResending(false); setOtpError("Failed to resend OTP. Please try again."); }
-      );
-    } else {
+    const BASE_URL_CLEAN = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+    try {
+      const res = await fetch(`${BASE_URL_CLEAN}/api/auth/resend-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phoneDigits }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setOtpResending(false);
+        startOtpTimer(30);
+        setTimeout(() => otpInputRef.current?.focus(), 50);
+      } else {
+        throw new Error(data.error || "Failed to resend");
+      }
+    } catch (err) {
+      console.error("[otp-send] Resend failed:", err);
       setOtpResending(false);
+      setOtpError("Failed to resend OTP. Please try again.");
     }
   };
 

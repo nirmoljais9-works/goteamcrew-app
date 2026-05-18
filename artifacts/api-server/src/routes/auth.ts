@@ -116,6 +116,91 @@ router.get("/auth/check-exists", async (req, res) => {
   }
 });
 
+const MSG91_AUTHKEY = "508849TqFl2WeiaRJg69df3ff5P1";
+
+function normalizePhone(raw: string): string | null {
+  const digits = String(raw).replace(/\D/g, "");
+  let bare = digits;
+  if (bare.startsWith("91") && bare.length === 12) bare = bare.slice(2);
+  bare = bare.slice(-10);
+  return bare.length === 10 ? bare : null;
+}
+
+// ── Send OTP via MSG91 REST API ───────────────────────────────────────────────
+router.post("/auth/send-otp", async (req, res) => {
+  try {
+    const bare = normalizePhone(req.body.phone ?? "");
+    if (!bare) return res.status(400).json({ error: "Invalid phone number" });
+
+    const mobile = `91${bare}`;
+    console.log("[otp-send] Sending OTP to:", mobile);
+
+    const url = `https://api.msg91.com/api/v5/otp?authkey=${MSG91_AUTHKEY}&mobile=${mobile}&otp_length=4`;
+    const msg91Res = await fetch(url);
+    const data: any = await msg91Res.json();
+    console.log("[otp-send] MSG91 response:", data);
+
+    if (data.type === "success") {
+      return res.json({ success: true });
+    }
+    return res.status(400).json({ error: data.message || "Failed to send OTP" });
+  } catch (err) {
+    console.error("[otp-send] Error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ── Verify OTP via MSG91 REST API ─────────────────────────────────────────────
+router.post("/auth/verify-otp", async (req, res) => {
+  try {
+    const bare = normalizePhone(req.body.phone ?? "");
+    const otp  = String(req.body.otp ?? "").replace(/\D/g, "").slice(0, 4);
+    if (!bare) return res.status(400).json({ error: "Invalid phone number" });
+    if (otp.length !== 4) return res.status(400).json({ error: "OTP must be 4 digits" });
+
+    const mobile = `91${bare}`;
+    console.log("[otp-verify] Verifying OTP for:", mobile);
+
+    const url = `https://api.msg91.com/api/v5/otp/verify?authkey=${MSG91_AUTHKEY}&mobile=${mobile}&otp=${otp}`;
+    const msg91Res = await fetch(url);
+    const data: any = await msg91Res.json();
+    console.log("[otp-verify] MSG91 response:", data);
+
+    if (data.type === "success") {
+      (req as any).session.otpVerifiedPhone = bare;
+      return res.json({ success: true });
+    }
+    return res.status(400).json({ error: data.message || "Incorrect OTP" });
+  } catch (err) {
+    console.error("[otp-verify] Error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ── Resend OTP via MSG91 REST API ─────────────────────────────────────────────
+router.post("/auth/resend-otp", async (req, res) => {
+  try {
+    const bare = normalizePhone(req.body.phone ?? "");
+    if (!bare) return res.status(400).json({ error: "Invalid phone number" });
+
+    const mobile = `91${bare}`;
+    console.log("[otp-send] Resending OTP to:", mobile);
+
+    const url = `https://api.msg91.com/api/v5/otp/retry?authkey=${MSG91_AUTHKEY}&mobile=${mobile}&retrytype=text`;
+    const msg91Res = await fetch(url);
+    const data: any = await msg91Res.json();
+    console.log("[otp-send] MSG91 resend response:", data);
+
+    if (data.type === "success") {
+      return res.json({ success: true });
+    }
+    return res.status(400).json({ error: data.message || "Failed to resend OTP" });
+  } catch (err) {
+    console.error("[otp-send] Resend error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // ── Check if a phone number is already registered ────────────────────────────
 // Used by the registration flow before sending OTP to avoid wasting SMS quota
 // on numbers that already have an account.
