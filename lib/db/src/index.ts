@@ -313,6 +313,56 @@ export async function ensureTables(): Promise<void> {
     console.log("[db] Enum values synced");
   }
 
+  // ── approval_status backfill (idempotent) ─────────────────────────────────
+  // Runs on every startup to heal the migration gap: when the column was first
+  // added via ADD COLUMN, PostgreSQL filled all existing rows with the column
+  // DEFAULT ('under_review'), including users whose temp_approved=true or whose
+  // users.status is already 'approved'/'active'.  These WHERE-gated UPDATEs
+  // are no-ops once every affected row has been migrated.
+  if (dialect === "postgres") {
+    try {
+      // Priority 1: fully approved/active users → 'approved'
+      const r1 = await pool.query(`
+        UPDATE crew_profiles cp
+        SET    approval_status = 'approved',
+               approved_at     = COALESCE(cp.approved_at, NOW()),
+               updated_at      = NOW()
+        FROM   users u
+        WHERE  cp.user_id = u.id
+          AND  u.status IN ('approved', 'active')
+          AND  cp.approval_status = 'under_review'
+      `);
+      // Priority 2: temp_approved boolean still set → 'temp_approved'
+      const r2 = await pool.query(`
+        UPDATE crew_profiles
+        SET    approval_status = 'temp_approved',
+               approved_at     = COALESCE(approved_at, NOW()),
+               updated_at      = NOW()
+        WHERE  temp_approved = true
+          AND  approval_status = 'under_review'
+      `);
+      // Priority 3: rejected users → 'rejected'
+      const r3 = await pool.query(`
+        UPDATE crew_profiles cp
+        SET    approval_status = 'rejected',
+               updated_at      = NOW()
+        FROM   users u
+        WHERE  cp.user_id = u.id
+          AND  u.status = 'rejected'
+          AND  cp.approval_status = 'under_review'
+      `);
+      const total = (r1.rowCount ?? 0) + (r2.rowCount ?? 0) + (r3.rowCount ?? 0);
+      if (total > 0) {
+        console.log(
+          `[db] approval_status backfill: ` +
+          `${r1.rowCount ?? 0} approved, ${r2.rowCount ?? 0} temp_approved, ${r3.rowCount ?? 0} rejected`,
+        );
+      }
+    } catch (err: any) {
+      console.warn("[db] approval_status backfill skipped:", err?.message);
+    }
+  }
+
   if (failed === 0) {
     console.log(
       `[db] Schema sync complete — ` +

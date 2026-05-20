@@ -192,7 +192,10 @@ export function ProtectedRoute({ children, allowedRole }: ProtectedRouteProps) {
       approvalStatus === "approved" ||
       status === "approved" ||
       status === "active" ||
-      // Fallback: old rows where approvalStatus is not set yet
+      // Defense layer 1: ADD COLUMN default gap — DB has 'under_review' but
+      // tempApproved=true means the backfill/normalization hasn't fired yet.
+      (approvalStatus === "under_review" && !!user.tempApproved) ||
+      // Defense layer 2: very old rows where approvalStatus was never set (null).
       (approvalStatus == null && !!user.tempApproved);
 
     const isTempApproved =

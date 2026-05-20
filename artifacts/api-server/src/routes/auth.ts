@@ -139,9 +139,23 @@ router.get("/auth/me", (req, res) => {
   .where(eq(usersTable.id, session.userId))
   .then(([row]) => {
     if (!row) return res.status(401).json({ error: "User not found" });
-    const approvalStatus = row.approvalStatus ?? "under_review";
-    const tempApproved = row.tempApproved ?? false;
-    console.log(`[auth/me] user=${row.id} role=${row.role} status=${row.status} approvalStatus=${approvalStatus} tempApproved=${tempApproved}`);
+    const rawApprovalStatus = row.approvalStatus ?? "under_review";
+    const rawTempApproved = row.tempApproved ?? false;
+    // Normalize: when the approval_status column was first added via ALTER TABLE,
+    // PostgreSQL filled ALL existing rows with the column DEFAULT ('under_review'),
+    // including users who had temp_approved=true.  The backfill in ensureTables()
+    // heals this on startup, but as a belt-and-suspenders defence we also fix it
+    // here in the response so no client ever receives a stale 'under_review' for
+    // a user who is actually temp-approved or fully approved.
+    const approvalStatus =
+      rawApprovalStatus === "under_review" && rawTempApproved
+        ? "temp_approved"
+        : rawApprovalStatus;
+    const tempApproved = rawTempApproved || approvalStatus === "temp_approved";
+    console.log(
+      `[auth/me] user=${row.id} role=${row.role} status=${row.status} ` +
+      `rawApprovalStatus=${rawApprovalStatus} approvalStatus=${approvalStatus} tempApproved=${tempApproved}`,
+    );
     res.json({
       id: row.id,
       email: row.email,
@@ -230,8 +244,14 @@ router.post("/auth/login", async (req, res) => {
       if (profile) {
         rejectionReason = profile.rejectionReason ?? null;
         crewProfileId = profile.id;
-        tempApproved = profile.tempApproved ?? false;
-        approvalStatus = profile.approvalStatus ?? "under_review";
+        const rawTempApproved = profile.tempApproved ?? false;
+        const rawApprovalStatus = profile.approvalStatus ?? "under_review";
+        // Same normalization as /api/auth/me — handles the ADD COLUMN default gap.
+        approvalStatus =
+          rawApprovalStatus === "under_review" && rawTempApproved
+            ? "temp_approved"
+            : rawApprovalStatus;
+        tempApproved = rawTempApproved || approvalStatus === "temp_approved";
       }
     }
 
