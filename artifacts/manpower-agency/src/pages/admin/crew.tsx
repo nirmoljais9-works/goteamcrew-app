@@ -570,9 +570,14 @@ export default function AdminCrew() {
                                     <Check className="w-3.5 h-3.5" /> Approve
                                   </DropdownMenuItem>
                                 )}
-                                {/* Temp Approve — profile-only access for pending/resubmitted crew */}
-                                {(crew.status === "pending" || crew.status === "resubmitted") && (
-                                  (crew as any).tempApproved ? (
+                                {/* Temp Approve — profile-only access toggle for pending/resubmitted crew */}
+                                {(crew.status === "pending" || crew.status === "resubmitted") && (() => {
+                                  // approvalStatus is the authoritative field; fall back to tempApproved
+                                  // boolean for pre-migration rows that don't have approvalStatus yet.
+                                  const isGranted =
+                                    (crew as any).approvalStatus === "temp_approved" ||
+                                    ((crew as any).approvalStatus == null && !!(crew as any).tempApproved);
+                                  return isGranted ? (
                                     <DropdownMenuItem
                                       className="flex items-center gap-2 text-xs rounded-lg px-3 py-2 cursor-pointer text-violet-700 bg-violet-50 hover:bg-violet-100 focus:bg-violet-100 font-medium"
                                       onClick={() => handleTempApprove(crew.id, crew.name, crew.phone, true)}
@@ -586,8 +591,8 @@ export default function AdminCrew() {
                                     >
                                       <Clock className="w-3.5 h-3.5" /> Temp Approve
                                     </DropdownMenuItem>
-                                  )
-                                )}
+                                  );
+                                })()}
                                 {/* Reject */}
                                 {crew.status === "rejected" || crew.status === "resubmitted" ? (
                                   <DropdownMenuItem

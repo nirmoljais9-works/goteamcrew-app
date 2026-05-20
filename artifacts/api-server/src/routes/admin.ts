@@ -172,6 +172,7 @@ router.get("/admin/crew", requireAdmin, async (req: any, res) => {
         source: crewProfilesTable.heardAboutUs,
         status: usersTable.status,
         tempApproved: crewProfilesTable.tempApproved,
+        approvalStatus: crewProfilesTable.approvalStatus,
         totalEarnings: crewProfilesTable.totalEarnings,
         completedShifts: crewProfilesTable.completedShifts,
         createdAt: usersTable.createdAt,
@@ -539,26 +540,44 @@ router.post("/admin/crew/:id/approve", requireAdmin, async (req: any, res) => {
   }
 });
 
-// ─── Temp Approve (grant profile-only access for pending crew) ────────────────
+// ─── Temp Approve toggle ───────────────────────────────────────────────────────
+// Toggles profile-only access for pending/resubmitted crew.
 // Approval is persistent — stored in crew_profiles, not in the session.
-// Logout, password reset, or session expiry do NOT revoke temp approval.
-// To revoke, use set-pending or reject.
+// Logout, password reset, or session expiry do NOT affect this state.
+//   • If currently temp_approved  → reverts to under_review (removes access)
+//   • Otherwise                   → grants temp_approved (gives access)
+// WhatsApp notification is the caller's responsibility; this endpoint only
+// returns tempApproved so the caller knows whether to send the WA message.
 router.patch("/admin/crew/:id/temp-approve", requireAdmin, async (req: any, res) => {
   try {
     const crewId = parseInt(req.params.id);
-    const [profile] = await db.select().from(crewProfilesTable).where(eq(crewProfilesTable.id, crewId));
-    if (!profile) return res.status(404).json({ error: "Crew not found" });
-    const now = new Date();
-    await db.update(crewProfilesTable)
-      .set({
-        tempApproved: true,
-        approvalStatus: "temp_approved",
-        approvedAt: now,
-        updatedAt: now,
-      })
+    const [profile] = await db
+      .select({ userId: crewProfilesTable.userId, approvalStatus: crewProfilesTable.approvalStatus, tempApproved: crewProfilesTable.tempApproved })
+      .from(crewProfilesTable)
       .where(eq(crewProfilesTable.id, crewId));
-    console.log(`[admin] TEMP APPROVE applied for crew #${crewId} (user #${profile.userId}) at ${now.toISOString()}`);
-    res.json({ success: true, tempApproved: true, approvalStatus: "temp_approved" });
+    if (!profile) return res.status(404).json({ error: "Crew not found" });
+
+    const isCurrentlyGranted =
+      profile.approvalStatus === "temp_approved" ||
+      // Fallback for pre-migration rows that only have the boolean set
+      (profile.approvalStatus == null && profile.tempApproved === true);
+
+    if (isCurrentlyGranted) {
+      // Revoke — restore to under_review
+      await db.update(crewProfilesTable)
+        .set({ tempApproved: false, approvalStatus: "under_review", approvedAt: null, updatedAt: new Date() })
+        .where(eq(crewProfilesTable.id, crewId));
+      console.log(`[admin] TEMP APPROVE revoked for crew #${crewId} (user #${profile.userId})`);
+      res.json({ success: true, tempApproved: false, approvalStatus: "under_review" });
+    } else {
+      // Grant
+      const now = new Date();
+      await db.update(crewProfilesTable)
+        .set({ tempApproved: true, approvalStatus: "temp_approved", approvedAt: now, updatedAt: now })
+        .where(eq(crewProfilesTable.id, crewId));
+      console.log(`[admin] TEMP APPROVE granted for crew #${crewId} (user #${profile.userId}) at ${now.toISOString()}`);
+      res.json({ success: true, tempApproved: true, approvalStatus: "temp_approved" });
+    }
   } catch {
     res.status(500).json({ error: "Server error" });
   }
