@@ -183,10 +183,27 @@ export function ProtectedRoute({ children, allowedRole }: ProtectedRouteProps) {
   if (user.role === "crew") {
     const status = user.status;
 
-    // Temp-approved: allow through, but AppLayout hides navigation
-    const isTempApproved = !!user.tempApproved;
+    // Approval check — DB state is authoritative.
+    // approvalStatus is the primary source; tempApproved boolean is the fallback
+    // for users whose approvalStatus was not yet set (pre-migration rows).
+    const approvalStatus = user.approvalStatus;
+    const hasAccess =
+      approvalStatus === "temp_approved" ||
+      approvalStatus === "approved" ||
+      status === "approved" ||
+      status === "active" ||
+      // Fallback: old rows where approvalStatus is not set yet
+      (approvalStatus == null && !!user.tempApproved);
 
-    if (!isTempApproved && (status === "pending" || status === "resubmitted")) {
+    const isTempApproved =
+      approvalStatus === "temp_approved" ||
+      (approvalStatus == null && !!user.tempApproved);
+
+    console.log(
+      `[ProtectedRoute] user=${user.id} status=${status} approvalStatus=${approvalStatus} tempApproved=${user.tempApproved} hasAccess=${hasAccess}`,
+    );
+
+    if (!hasAccess && (status === "pending" || status === "resubmitted")) {
       return <PendingScreen onLogout={logout} />;
     }
 
@@ -201,5 +218,10 @@ export function ProtectedRoute({ children, allowedRole }: ProtectedRouteProps) {
     }
   }
 
-  return <AppLayout tempApprovedMode={!!(user.role === "crew" && user.tempApproved)}>{children}</AppLayout>;
+  const isTempApprovedMode =
+    user.role === "crew" &&
+    (user.approvalStatus === "temp_approved" ||
+      (user.approvalStatus == null && !!user.tempApproved));
+
+  return <AppLayout tempApprovedMode={isTempApprovedMode}>{children}</AppLayout>;
 }

@@ -71,6 +71,8 @@ export const crewProfilesTable = pgTable("crew_profiles", {
   withdrawalCount: integer("withdrawal_count").notNull().default(0),
   lastWithdrawnAt: timestamp("last_withdrawn_at"),
   tempApproved: boolean("temp_approved").notNull().default(false),
+  approvalStatus: text("approval_status").notNull().default("under_review"),
+  approvedAt: timestamp("approved_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({

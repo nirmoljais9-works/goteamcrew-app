@@ -131,12 +131,17 @@ router.get("/auth/me", (req, res) => {
     rejectionReason: crewProfilesTable.rejectionReason,
     crewProfileId: crewProfilesTable.id,
     tempApproved: crewProfilesTable.tempApproved,
+    approvalStatus: crewProfilesTable.approvalStatus,
+    approvedAt: crewProfilesTable.approvedAt,
   })
   .from(usersTable)
   .leftJoin(crewProfilesTable, eq(crewProfilesTable.userId, usersTable.id))
   .where(eq(usersTable.id, session.userId))
   .then(([row]) => {
     if (!row) return res.status(401).json({ error: "User not found" });
+    const approvalStatus = row.approvalStatus ?? "under_review";
+    const tempApproved = row.tempApproved ?? false;
+    console.log(`[auth/me] user=${row.id} role=${row.role} status=${row.status} approvalStatus=${approvalStatus} tempApproved=${tempApproved}`);
     res.json({
       id: row.id,
       email: row.email,
@@ -146,9 +151,14 @@ router.get("/auth/me", (req, res) => {
       createdAt: row.createdAt,
       rejectionReason: row.rejectionReason ?? null,
       crewProfileId: row.crewProfileId ?? null,
-      tempApproved: row.tempApproved ?? false,
+      tempApproved,
+      approvalStatus,
+      approvedAt: row.approvedAt?.toISOString() ?? null,
     });
-  }).catch(() => res.status(500).json({ error: "Server error" }));
+  }).catch((err) => {
+    console.error("[auth/me] query failed:", err?.message ?? err);
+    res.status(500).json({ error: "Server error" });
+  });
 });
 
 router.post("/auth/login", async (req, res) => {
@@ -199,19 +209,33 @@ router.post("/auth/login", async (req, res) => {
     (req as any).session.userId = user.id;
     (req as any).session.role = user.role;
 
-    // Fetch crew profile extras (rejection reason, profile id) for crew users
+    // Fetch crew profile extras — include approval state so the login response
+    // populates the React Query cache with the correct tempApproved/approvalStatus.
+    // Without this, setQueryData after login would cache tempApproved=undefined,
+    // causing ProtectedRoute to show PendingScreen even for temp-approved users.
     let rejectionReason: string | null = null;
     let crewProfileId: number | null = null;
+    let tempApproved = false;
+    let approvalStatus = "under_review";
     if (user.role === "crew") {
       const [profile] = await db
-        .select({ id: crewProfilesTable.id, rejectionReason: crewProfilesTable.rejectionReason })
+        .select({
+          id: crewProfilesTable.id,
+          rejectionReason: crewProfilesTable.rejectionReason,
+          tempApproved: crewProfilesTable.tempApproved,
+          approvalStatus: crewProfilesTable.approvalStatus,
+        })
         .from(crewProfilesTable)
         .where(eq(crewProfilesTable.userId, user.id));
       if (profile) {
         rejectionReason = profile.rejectionReason ?? null;
         crewProfileId = profile.id;
+        tempApproved = profile.tempApproved ?? false;
+        approvalStatus = profile.approvalStatus ?? "under_review";
       }
     }
+
+    console.log(`[login] user=${user.id} role=${user.role} status=${user.status} approvalStatus=${approvalStatus} tempApproved=${tempApproved}`);
 
     // Explicitly save session to PostgreSQL before responding — prevents the
     // race condition on VPS where the client's next /api/auth/me arrives before
@@ -227,6 +251,8 @@ router.post("/auth/login", async (req, res) => {
         createdAt: user.createdAt,
         rejectionReason,
         crewProfileId,
+        tempApproved,
+        approvalStatus,
       });
     });
   } catch {
@@ -709,9 +735,12 @@ router.post("/auth/reset-password", async (req, res) => {
     const passwordHash = await bcrypt.hash(String(newPassword), 10);
     await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, profile.userId));
 
-    // Immediately invalidate all existing sessions so old password can't be reused
+    // Immediately invalidate all existing sessions so old password can't be reused.
+    // NOTE: this does NOT touch tempApproved or approvalStatus — approval state
+    // is stored in crew_profiles and is independent of the session/password.
     await invalidateUserSessions(profile.userId);
 
+    console.log(`[reset-password] user=${profile.userId} status=${profile.status} — password updated, approval state retained`);
     res.json({ success: true });
   } catch (err) {
     console.error("[reset-password]", err);

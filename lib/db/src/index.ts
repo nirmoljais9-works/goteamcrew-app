@@ -238,6 +238,8 @@ export async function ensureTables(): Promise<void> {
     { col: "pending_languages",         def: "TEXT" },
     { col: "pending_experience",        def: "TEXT" },
     { col: "pending_category",          def: "TEXT" },
+    { col: "approval_status",           def: "TEXT NOT NULL DEFAULT 'under_review'" },
+    { col: "approved_at",               def: "TIMESTAMP" },
   ]);
 
   // ── shifts columns ────────────────────────────────────────────────────────

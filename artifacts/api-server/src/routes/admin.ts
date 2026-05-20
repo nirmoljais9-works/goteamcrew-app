@@ -529,33 +529,52 @@ router.post("/admin/crew/:id/approve", requireAdmin, async (req: any, res) => {
     const [profile] = await db.select().from(crewProfilesTable).where(eq(crewProfilesTable.id, crewId));
     if (!profile) return res.status(404).json({ error: "Crew not found" });
     await db.update(usersTable).set({ status: "approved", updatedAt: new Date() }).where(eq(usersTable.id, profile.userId));
+    await db.update(crewProfilesTable)
+      .set({ approvalStatus: "approved", tempApproved: false, approvedAt: new Date(), updatedAt: new Date() })
+      .where(eq(crewProfilesTable.id, crewId));
+    console.log(`[admin] APPROVED crew #${crewId} (user #${profile.userId})`);
     res.json({ success: true });
   } catch {
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// ─── Temp Approve (toggle profile-only access for pending crew) ───────────────
+// ─── Temp Approve (grant profile-only access for pending crew) ────────────────
+// Approval is persistent — stored in crew_profiles, not in the session.
+// Logout, password reset, or session expiry do NOT revoke temp approval.
+// To revoke, use set-pending or reject.
 router.patch("/admin/crew/:id/temp-approve", requireAdmin, async (req: any, res) => {
   try {
     const crewId = parseInt(req.params.id);
     const [profile] = await db.select().from(crewProfilesTable).where(eq(crewProfilesTable.id, crewId));
     if (!profile) return res.status(404).json({ error: "Crew not found" });
-    const newValue = !profile.tempApproved;
-    await db.update(crewProfilesTable).set({ tempApproved: newValue }).where(eq(crewProfilesTable.id, crewId));
-    res.json({ success: true, tempApproved: newValue });
+    const now = new Date();
+    await db.update(crewProfilesTable)
+      .set({
+        tempApproved: true,
+        approvalStatus: "temp_approved",
+        approvedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(crewProfilesTable.id, crewId));
+    console.log(`[admin] TEMP APPROVE applied for crew #${crewId} (user #${profile.userId}) at ${now.toISOString()}`);
+    res.json({ success: true, tempApproved: true, approvalStatus: "temp_approved" });
   } catch {
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// ─── Set Pending (undo approval) ──────────────────────────────────────────────
+// ─── Set Pending (undo approval / temp-approval) ──────────────────────────────
 router.post("/admin/crew/:id/set-pending", requireAdmin, async (req: any, res) => {
   try {
     const crewId = parseInt(req.params.id);
     const [profile] = await db.select().from(crewProfilesTable).where(eq(crewProfilesTable.id, crewId));
     if (!profile) return res.status(404).json({ error: "Crew not found" });
     await db.update(usersTable).set({ status: "pending", updatedAt: new Date() }).where(eq(usersTable.id, profile.userId));
+    await db.update(crewProfilesTable)
+      .set({ approvalStatus: "under_review", tempApproved: false, approvedAt: null, updatedAt: new Date() })
+      .where(eq(crewProfilesTable.id, crewId));
+    console.log(`[admin] SET PENDING for crew #${crewId} — approval cleared`);
     res.json({ success: true });
   } catch {
     res.status(500).json({ error: "Server error" });
@@ -574,8 +593,15 @@ router.post("/admin/crew/:id/reject", requireAdmin, async (req: any, res) => {
     if (!profile) return res.status(404).json({ error: "Crew not found" });
     await db.update(usersTable).set({ status: "rejected", updatedAt: new Date() }).where(eq(usersTable.id, profile.userId));
     await db.update(crewProfilesTable)
-      .set({ rejectionReason: reason?.trim() || null })
+      .set({
+        rejectionReason: reason?.trim() || null,
+        approvalStatus: "rejected",
+        tempApproved: false,
+        approvedAt: null,
+        updatedAt: new Date(),
+      })
       .where(eq(crewProfilesTable.id, crewId));
+    console.log(`[admin] REJECTED crew #${crewId} — reason: ${reason?.trim() || "(none)"}`);
     const editLink = `https://goteamcrew.in/register?crew_id=${crewId}`;
     res.json({ success: true, editLink, rejectionReason: reason?.trim() || null });
   } catch {

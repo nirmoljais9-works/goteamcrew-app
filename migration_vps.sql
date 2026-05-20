@@ -159,5 +159,43 @@ ALTER TABLE shift_claims ADD COLUMN IF NOT EXISTS withdrawal_reason    TEXT;
 ALTER TABLE referrals ADD COLUMN IF NOT EXISTS referred_phone TEXT;
 ALTER TABLE referrals ADD COLUMN IF NOT EXISTS reward_paid    TEXT NOT NULL DEFAULT 'no';
 
+-- ── crew_profiles — approval state columns ────────────────────
+-- approval_status: under_review | temp_approved | approved | rejected
+-- This is the authoritative approval state — independent of session/password.
+ALTER TABLE crew_profiles ADD COLUMN IF NOT EXISTS approval_status TEXT NOT NULL DEFAULT 'under_review';
+ALTER TABLE crew_profiles ADD COLUMN IF NOT EXISTS approved_at     TIMESTAMP;
+
+-- ── Data migration: populate approval_status from existing state ──
+-- Step 1: users already fully approved/active → approval_status = 'approved'
+UPDATE crew_profiles cp
+SET    approval_status = 'approved',
+       approved_at     = COALESCE(approved_at, NOW())
+FROM   users u
+WHERE  cp.user_id = u.id
+  AND  u.status IN ('approved', 'active')
+  AND  cp.approval_status = 'under_review';
+
+-- Step 2: users with temp_approved = true but not yet migrated → approval_status = 'temp_approved'
+UPDATE crew_profiles
+SET    approval_status = 'temp_approved',
+       approved_at     = COALESCE(approved_at, NOW())
+WHERE  temp_approved = true
+  AND  approval_status = 'under_review';
+
+-- Step 3: rejected users → approval_status = 'rejected'
+UPDATE crew_profiles cp
+SET    approval_status = 'rejected'
+FROM   users u
+WHERE  cp.user_id = u.id
+  AND  u.status = 'rejected'
+  AND  cp.approval_status = 'under_review';
+
 -- ── Done ──────────────────────────────────────────────────────
+SELECT
+  approval_status,
+  COUNT(*) AS crew_count
+FROM crew_profiles
+GROUP BY approval_status
+ORDER BY crew_count DESC;
+
 SELECT 'Migration complete' AS status;

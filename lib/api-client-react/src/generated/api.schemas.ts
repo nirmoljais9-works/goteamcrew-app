@@ -38,6 +38,8 @@ export interface User {
   rejectionReason?: string;
   crewProfileId?: number;
   tempApproved?: boolean;
+  approvalStatus?: string;
+  approvedAt?: string | null;
 }
 
 export interface LoginRequest {
