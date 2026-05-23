@@ -16,3 +16,9 @@ externalPort = 3000
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+MSG91_SENDER_ID = "GTMCRW"
+MSG91_TEMPLATE_ID = "1007372746990126494"
