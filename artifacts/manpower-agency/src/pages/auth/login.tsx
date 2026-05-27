@@ -151,8 +151,13 @@ function ForgotPasswordModal({ open, onClose, initialPhone }: {
         toast({ variant: "destructive", title: "OTP service unavailable", description: "Please check your connection and try again." });
         return;
       }
+      if (document.querySelector("script[data-msg91-sdk]")) {
+        console.log("[OTP] MSG91 SDK script tag already in DOM — skipping duplicate insert");
+        idx++; tryNext(); return;
+      }
       const s = document.createElement("script");
       s.src = urls[idx]; s.async = true;
+      s.setAttribute("data-msg91-sdk", "1");
       // @ts-ignore
       s.onload = () => { if (typeof window.initSendOTP === "function") doSendOTP(identifier); else { idx++; tryNext(); } };
       s.onerror = () => { idx++; tryNext(); };

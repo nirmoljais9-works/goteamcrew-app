@@ -1100,9 +1100,14 @@ export default function Register() {
           toast({ variant: "destructive", title: "OTP service unavailable", description: "Please check your connection and try again." });
           return;
         }
+        if (document.querySelector("script[data-msg91-sdk]")) {
+          console.log("[OTP] MSG91 SDK script tag already in DOM — skipping duplicate insert");
+          urlIndex++; loadNext(); return;
+        }
         const script = document.createElement("script");
         script.src = urls[urlIndex];
         script.async = true;
+        script.setAttribute("data-msg91-sdk", "1");
         console.log("[OTP] Attempting to load MSG91 SDK from:", urls[urlIndex]);
         script.onload = () => {
           console.log("[OTP] Script loaded from:", urls[urlIndex - 1] ?? urls[urlIndex]);
