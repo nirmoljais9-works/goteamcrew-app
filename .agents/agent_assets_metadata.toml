@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "q-bBPLPRj9weWM54ogCD8"
+uri = "file://deploy_package.tar.gz"
+type = "unspecified"
+title = "Goteamcrew VPS Deploy Package"
