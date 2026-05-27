@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { Link } from "wouter";
-import { useAdminGetAllCrew, useAdminApproveCrew, getAdminGetAllCrewQueryKey } from "@workspace/api-client-react";
+import { useAdminGetAllCrew, useAdminApproveCrew } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -80,7 +80,7 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; s
 
 export default function AdminCrew() {
   const { data: crewMembers, isLoading } = useAdminGetAllCrew({
-    query: { queryKey: getAdminGetAllCrewQueryKey(), refetchInterval: 15_000 },
+    query: { refetchInterval: 15_000 },
   });
   const approveMutation = useAdminApproveCrew();
   const queryClient = useQueryClient();
