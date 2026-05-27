@@ -121,17 +121,6 @@ function ForgotPasswordModal({ open, onClose, initialPhone }: {
     setFormError("");
     setSending(true);
 
-    // ── Kick off SDK load in parallel with the account check ──────────────────
-    // By the time check-account responds (50–300 ms), otp-provider.js is likely
-    // already downloaded — so doSendOTP fires with zero extra wait.
-    // @ts-ignore
-    if (typeof window.initSendOTP !== "function" && !document.querySelector("script[data-msg91-sdk]")) {
-      const pre = document.createElement("script");
-      pre.src = "https://verify.msg91.com/otp-provider.js";
-      pre.async = true; pre.setAttribute("data-msg91-sdk", "1");
-      document.head.appendChild(pre);
-    }
-
     // ── Verify account exists before sending OTP (POST = never cached) ────────
     try {
       const checkRes = await fetch(`${BASE_URL}/api/auth/check-account`, {
@@ -163,15 +152,8 @@ function ForgotPasswordModal({ open, onClose, initialPhone }: {
         return;
       }
       if (document.querySelector("script[data-msg91-sdk]")) {
-        // @ts-ignore
-        if (typeof window.initSendOTP === "function") { doSendOTP(identifier); return; }
-        // Preloaded script still in flight — wait for it instead of skipping
-        const inFlight = document.querySelector("script[data-msg91-sdk]") as HTMLScriptElement;
-        inFlight.addEventListener("load", () => { // @ts-ignore
-          if (typeof window.initSendOTP === "function") doSendOTP(identifier); else { idx++; tryNext(); }
-        }, { once: true });
-        inFlight.addEventListener("error", () => { idx++; tryNext(); }, { once: true });
-        return;
+        console.log("[OTP] MSG91 SDK script tag already in DOM — skipping duplicate insert");
+        idx++; tryNext(); return;
       }
       const s = document.createElement("script");
       s.src = urls[idx]; s.async = true;
