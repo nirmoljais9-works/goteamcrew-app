@@ -1085,10 +1085,10 @@ export default function ShiftDetail() {
                     const skipLong = /Pradesh|Maharashtra|Karnataka|Gujarat|Rajasthan|Haryana|Bengal|Tamil|Telangana|Andhra|Kerala|Bihar|Odisha|Punjab|Assam|Himachal|Uttarakhand/i;
                     // Filter: remove booth codes + state/country segments
                     const parts = rawLoc.split(",")
-                      .map(p => p.trim())
-                      .filter(p => p.length > 0)
-                      .filter(p => !(/^[A-Za-z]-?\d|^\d+[A-Za-z]?$/.test(p))) // booth/flat codes
-                      .filter(p => !skipState.test(p) && !skipLong.test(p));
+                      .map((p: string) => p.trim())
+                      .filter((p: string) => p.length > 0)
+                      .filter((p: string) => !(/^[A-Za-z]-?\d|^\d+[A-Za-z]?$/.test(p))) // booth/flat codes
+                      .filter((p: string) => !skipState.test(p) && !skipLong.test(p));
                     if (!parts.length) return city || rawLoc;
                     // Venue = first segment, city = last segment (or eventCity if known)
                     let venueName = parts[0].replace(roadSuffixes, "").trim();
