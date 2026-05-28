@@ -99,20 +99,18 @@ function ForgotPasswordModal({ open, onClose, initialPhone }: {
       tokenAuth: "508849TqFl2WeiaRJg69df3ff5P1",
       identifier,
       exposeMethods: true,
-      success: () => {
-        setSending(false);
-        startTimer(30);
-        startCooldown(30);
-        setStep("otp");
-        setOtp(""); setOtpError("");
-        setTimeout(() => otpInputRef.current?.focus(), 150);
-      },
+      success: () => {},
       failure: (_err: unknown) => {
         setOtpError("Verification failed. Please try again.");
-        setOtp("");
         setVerifying(false);
       },
     });
+    setSending(false);
+    startTimer(30);
+    startCooldown(30);
+    setStep("otp");
+    setOtp(""); setOtpError("");
+    setTimeout(() => otpInputRef.current?.focus(), 150);
   };
 
   const sendOTP = async () => {

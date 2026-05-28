@@ -1056,7 +1056,7 @@ export default function Register() {
     console.log("[OTP] triggerOTP called — identifier:", identifier, "| domain:", window.location.hostname);
 
     const doSend = () => {
-      console.log("[OTP] Calling window.initSendOTP — widgetId: 36646f674475303238343136 | identifier:", identifier);
+      console.log("[OTP] Calling window.initSendOTP with widgetId: 36646f674475303238343136");
       // @ts-ignore
       window.initSendOTP({
         widgetId: "36646f674475303238343136",
@@ -1070,13 +1070,12 @@ export default function Register() {
           setOtpLoading(false);
         },
         failure: (_err: unknown) => {
-          console.error("[OTP] initSendOTP / verify FAILURE:", JSON.stringify(_err), _err);
+          console.error("[OTP] Verification FAILED", _err);
           setOtpError("Verification failed. Please try again.");
           setOtpVerifying(false);
           setOtpLoading(false);
         },
       });
-      console.log("[OTP] initSendOTP invoked — waiting for MSG91 response");
 
       // OTP is now in flight — open our custom entry modal immediately
       setOtpLoading(false);
@@ -1101,9 +1100,14 @@ export default function Register() {
           toast({ variant: "destructive", title: "OTP service unavailable", description: "Please check your connection and try again." });
           return;
         }
+        if (document.querySelector("script[data-msg91-sdk]")) {
+          console.log("[OTP] MSG91 SDK script tag already in DOM — skipping duplicate insert");
+          urlIndex++; loadNext(); return;
+        }
         const script = document.createElement("script");
         script.src = urls[urlIndex];
         script.async = true;
+        script.setAttribute("data-msg91-sdk", "1");
         console.log("[OTP] Attempting to load MSG91 SDK from:", urls[urlIndex]);
         script.onload = () => {
           console.log("[OTP] Script loaded from:", urls[urlIndex - 1] ?? urls[urlIndex]);
