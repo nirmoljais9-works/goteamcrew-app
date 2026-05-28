@@ -92,7 +92,8 @@ function ForgotPasswordModal({ open, onClose, initialPhone }: {
     cooldownRef.current = setInterval(() => setCooldown(c => { if (c <= 1) { clearInterval(cooldownRef.current!); return 0; } return c - 1; }), 1000);
   };
 
-  const doSendOTP = (identifier: string) => {
+  const doSendOTP = (identifier: string, t0: number = performance.now()) => {
+    console.log(`[OTP⏱] initSendOTP called — ${(performance.now() - t0).toFixed(0)}ms after click`);
     // @ts-ignore
     window.initSendOTP({
       widgetId: "36646f674475303238343136",
@@ -100,6 +101,7 @@ function ForgotPasswordModal({ open, onClose, initialPhone }: {
       identifier,
       exposeMethods: true,
       success: () => {
+        console.log(`[OTP⏱] success callback → popup opening — ${(performance.now() - t0).toFixed(0)}ms after click`);
         setSending(false);
         startTimer(30);
         startCooldown(30);
@@ -108,6 +110,7 @@ function ForgotPasswordModal({ open, onClose, initialPhone }: {
         setTimeout(() => otpInputRef.current?.focus(), 150);
       },
       failure: (_err: unknown) => {
+        console.log(`[OTP⏱] failure callback — ${(performance.now() - t0).toFixed(0)}ms after click`);
         setOtpError("Verification failed. Please try again.");
         setOtp("");
         setVerifying(false);
@@ -116,6 +119,8 @@ function ForgotPasswordModal({ open, onClose, initialPhone }: {
   };
 
   const sendOTP = async () => {
+    const t0 = performance.now();
+    console.log("[OTP⏱] Send OTP clicked");
     const digits = phone.replace(/\D/g, "").slice(0, 10);
     if (digits.length !== 10)  { setFormError("Enter a valid 10-digit phone number"); return; }
     if (password.length < 6)   { setFormError("Password must be at least 6 characters"); return; }
@@ -123,15 +128,17 @@ function ForgotPasswordModal({ open, onClose, initialPhone }: {
     setFormError("");
     setSending(true);
 
-    // ── Kick off SDK load in parallel with the account check ──────────────────
-    // By the time check-account responds (50–300 ms), otp-provider.js is likely
-    // already downloaded — so doSendOTP fires with zero extra wait.
+    // ── SDK status check — should already be ready from page-mount preload ────
     // @ts-ignore
     if (typeof window.initSendOTP !== "function" && !document.querySelector("script[data-msg91-sdk]")) {
+      console.log(`[OTP⏱] SDK not preloaded — injecting now — ${(performance.now() - t0).toFixed(0)}ms`);
       const pre = document.createElement("script");
       pre.src = "https://verify.msg91.com/otp-provider.js";
       pre.async = true; pre.setAttribute("data-msg91-sdk", "1");
       document.head.appendChild(pre);
+    } else {
+      // @ts-ignore
+      console.log(`[OTP⏱] SDK at click: ${typeof window.initSendOTP === "function" ? "ready ✓" : "still loading…"} — ${(performance.now() - t0).toFixed(0)}ms`);
     }
 
     // ── Verify account exists before sending OTP (POST = never cached) ────────
@@ -153,9 +160,11 @@ function ForgotPasswordModal({ open, onClose, initialPhone }: {
       return;
     }
 
+    console.log(`[OTP⏱] check-account verified — ${(performance.now() - t0).toFixed(0)}ms`);
+
     const identifier = `91${digits}`;
     // @ts-ignore
-    if (typeof window.initSendOTP === "function") { doSendOTP(identifier); return; }
+    if (typeof window.initSendOTP === "function") { doSendOTP(identifier, t0); return; }
     const urls = ["https://verify.msg91.com/otp-provider.js", "https://verify.phone91.com/otp-provider.js"];
     let idx = 0;
     const tryNext = () => {
@@ -166,11 +175,12 @@ function ForgotPasswordModal({ open, onClose, initialPhone }: {
       }
       if (document.querySelector("script[data-msg91-sdk]")) {
         // @ts-ignore
-        if (typeof window.initSendOTP === "function") { doSendOTP(identifier); return; }
+        if (typeof window.initSendOTP === "function") { doSendOTP(identifier, t0); return; }
         // Preloaded script still in flight — wait for it instead of skipping
         const inFlight = document.querySelector("script[data-msg91-sdk]") as HTMLScriptElement;
         inFlight.addEventListener("load", () => { // @ts-ignore
-          if (typeof window.initSendOTP === "function") doSendOTP(identifier); else { idx++; tryNext(); }
+          console.log(`[OTP⏱] in-flight script loaded — ${(performance.now() - t0).toFixed(0)}ms`); // @ts-ignore
+          if (typeof window.initSendOTP === "function") doSendOTP(identifier, t0); else { idx++; tryNext(); }
         }, { once: true });
         inFlight.addEventListener("error", () => { idx++; tryNext(); }, { once: true });
         return;
@@ -179,7 +189,7 @@ function ForgotPasswordModal({ open, onClose, initialPhone }: {
       s.src = urls[idx]; s.async = true;
       s.setAttribute("data-msg91-sdk", "1");
       // @ts-ignore
-      s.onload = () => { if (typeof window.initSendOTP === "function") doSendOTP(identifier); else { idx++; tryNext(); } };
+      s.onload = () => { console.log(`[OTP⏱] script loaded — ${(performance.now() - t0).toFixed(0)}ms`); if (typeof window.initSendOTP === "function") doSendOTP(identifier, t0); else { idx++; tryNext(); } };
       s.onerror = () => { idx++; tryNext(); };
       document.head.appendChild(s);
     };
@@ -433,6 +443,21 @@ export default function Login() {
       setLocation(resolveRedirect(stored, user.role));
     }
   }, [user, setLocation]);
+
+  // Preload MSG91 SDK on page mount so window.initSendOTP is ready before
+  // the user opens the OTP dialog — eliminates script-download from click path.
+  useEffect(() => {
+    // @ts-ignore
+    if (typeof window.initSendOTP === "function") return;
+    if (document.querySelector("script[data-msg91-sdk]")) return;
+    const s = document.createElement("script");
+    s.src = "https://verify.msg91.com/otp-provider.js";
+    s.async = true;
+    s.setAttribute("data-msg91-sdk", "1");
+    s.onload = () => console.log("[OTP⏱] SDK preloaded on page mount — window.initSendOTP ready");
+    s.onerror = () => console.warn("[OTP⏱] SDK preload failed on mount — will retry on button click");
+    document.head.appendChild(s);
+  }, []);
 
   const loginMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
