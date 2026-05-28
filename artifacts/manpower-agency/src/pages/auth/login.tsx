@@ -93,18 +93,23 @@ function ForgotPasswordModal({ open, onClose, initialPhone }: {
   };
 
   const doSendOTP = (identifier: string) => {
+    console.log("[OTP] doSendOTP called — identifier:", identifier, "widgetId: 36646f674475303238343136");
     // @ts-ignore
     window.initSendOTP({
       widgetId: "36646f674475303238343136",
       tokenAuth: "508849TqFl2WeiaRJg69df3ff5P1",
       identifier,
       exposeMethods: true,
-      success: () => {},
+      success: () => {
+        console.log("[OTP] initSendOTP success callback fired");
+      },
       failure: (_err: unknown) => {
+        console.error("[OTP] initSendOTP FAILURE:", JSON.stringify(_err), _err);
         setOtpError("Verification failed. Please try again.");
         setVerifying(false);
       },
     });
+    console.log("[OTP] initSendOTP invoked — waiting for MSG91 response");
     setSending(false);
     startTimer(30);
     startCooldown(30);

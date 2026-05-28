@@ -1056,7 +1056,7 @@ export default function Register() {
     console.log("[OTP] triggerOTP called — identifier:", identifier, "| domain:", window.location.hostname);
 
     const doSend = () => {
-      console.log("[OTP] Calling window.initSendOTP with widgetId: 36646f674475303238343136");
+      console.log("[OTP] Calling window.initSendOTP — widgetId: 36646f674475303238343136 | identifier:", identifier);
       // @ts-ignore
       window.initSendOTP({
         widgetId: "36646f674475303238343136",
@@ -1070,12 +1070,13 @@ export default function Register() {
           setOtpLoading(false);
         },
         failure: (_err: unknown) => {
-          console.error("[OTP] Verification FAILED", _err);
+          console.error("[OTP] initSendOTP / verify FAILURE:", JSON.stringify(_err), _err);
           setOtpError("Verification failed. Please try again.");
           setOtpVerifying(false);
           setOtpLoading(false);
         },
       });
+      console.log("[OTP] initSendOTP invoked — waiting for MSG91 response");
 
       // OTP is now in flight — open our custom entry modal immediately
       setOtpLoading(false);
